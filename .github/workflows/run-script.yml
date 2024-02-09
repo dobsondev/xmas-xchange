@@ -1,4 +1,4 @@
-name: Run Gift Exchange
+name: Test Gift Exchange
 
 on:
   workflow_call:
@@ -9,8 +9,8 @@ on:
         type: boolean
 
 jobs:
-  run_script:
-    name: Run xmas-change.py
+  test_run_script:
+    name: Test run xmas-change.py
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
