@@ -42,6 +42,21 @@ A participants entry should look like this:
 
 In this example, "Participant" is not allowed to match with "Wife" or "Brother" who would also have entries in the file. This way you can make sure that participants aren't matched up with their partners or whatever other constraints you might choose to have.
 
+### GitHub Action Secrets Setup
+
+In order to setup your repository so that you can use the GitHub actions in this repository, you will need to add two secrets:
+
+1. `ENV`
+2. `DATA_JSON`
+
+The `ENV` secret is a simple copy paste of your complete `.env` file. If you have a working `.env` on your local, copy it up to GitHub as a secret and it will work there.
+
+For the `DATA_JSON`, you must first base64 encode the data of the file and put that up as a secret. To do this, run the following command when you have everything working as expected on your local:
+
+```bash
+cat json/data.json | base64
+```
+
 ## Docker
 
 Below you will find a summary of helpful Docker commands that might need to be used for this project.

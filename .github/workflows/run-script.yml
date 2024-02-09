@@ -19,7 +19,7 @@ jobs:
       run: echo "${{ secrets.ENV }}" > .env
 
     - name: Generate json/data.json
-      run: echo "${{ secrets.DATA_JSON }}" > json/data.json
+      run: echo "${{ secrets.DATA_JSON }}" | base64 -d > ./json/data.json
 
     - name: Build Docker Image
       run: docker build -t xmas-xchange .
