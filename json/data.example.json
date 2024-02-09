@@ -1,0 +1,30 @@
+{
+    "Adam": {
+        "phone_number": "+15556667777",
+        "constraints": ["Beatrice"]
+    },
+    "Beatrice": {
+        "phone_number": "+15556667777",
+        "constraints": ["Adam"]
+    },
+    "Carole": {
+        "phone_number": "+15556667777",
+        "constraints": ["Danielle"]
+    },
+    "Danielle": {
+        "phone_number": "+15556667777",
+        "constraints": ["Carole"]
+    },
+    "Edgar": {
+        "phone_number": "+15556667777",
+        "constraints": ["Frank"]
+    },
+    "Frank": {
+        "phone_number": "+15556667777",
+        "constraints": ["Edgar", "Danielle"]
+    },
+    "Gray": {
+        "phone_number": "+15556667777",
+        "constraints": []
+    }
+}

@@ -1,0 +1,4 @@
+twilio
+boto3
+python-dotenv
+python-decouple
