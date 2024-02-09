@@ -16,10 +16,10 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Generate .env
-      run: echo "${{ secrets.ENV }}" | base64 --decode > .env
+      run: echo "${{ secrets.ENV }}" > .env
 
     - name: Generate json/data.json
-      run: echo "${{ secrets.DATA_JSON }}" | base64 --decode > json/data.json
+      run: echo "${{ secrets.DATA_JSON }}" > json/data.json
 
     - name: Build Docker Image
       run: docker build -t xmas-xchange .
