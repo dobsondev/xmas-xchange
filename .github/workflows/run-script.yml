@@ -1,7 +1,7 @@
 name: Run Gift Exchange
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       dryRun:
         description: "Do a dry-run without sending SMS messages to the recipients."

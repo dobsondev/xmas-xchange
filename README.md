@@ -1,5 +1,7 @@
 # Christmas Gift Exchange Script
 
+[![Test Run Gift Exchange](https://github.com/dobsondev/xmas-xchange/actions/workflows/test-build.yml/badge.svg)](https://github.com/dobsondev/xmas-xchange/actions/workflows/test-build.yml)
+
 This project contains a containerized Python script that will create a Christmas gift exchange and send txt messages to the participants notifying them of who they are buying gifts for.
 
 ## Prerequisites
