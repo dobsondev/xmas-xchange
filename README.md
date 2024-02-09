@@ -48,24 +48,32 @@ Below you will find a summary of helpful Docker commands that might need to be u
 
 ### Build the Docker Image
 
-```
+```bash
 docker build -t xmas-xchange .
 ```
 
 ### Run the Docker Container
 
-```
+```bash
 docker run --rm xmas-xchange
 ```
 
 ### Dry Run the Docker Container
-
+bash
 ```
 docker run --rm xmas-xchange --dry-run
 ```
 
 If you want to hide sensitive output (names and phone numbers), then use the following (this is used in the GitHub actions workflow to ensure nothing sensitive gets posted on GitHub.com):
 
-```
+```bash
 docker run --rm xmas-xchange --dry-run --hide-sensitive-output
 ```
+
+There is also an option specifically for when the script is run on a GitHub runner for testing:
+
+```bash
+docker run --rm xmas-xchange --github-test
+```
+
+This is the equivalent of running `docker run --rm xmas-xchange --dry-run --hide-sensitive-output` and does a little extra output formatting to make it clear it's running on GitHub.
