@@ -9,10 +9,12 @@ from twilio.rest import Client
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='Send Christmas Gift Exchange text messages')
-parser.add_argument('--dry-run', action='store_true', help='Do a dry-run without sending messages or writing to file')
+parser.add_argument('--dry-run', action='store_true', help='Do a dry-run without sending SMS messages to the recipients.')
+parser.add_argument('--hide-sensitive-output', action='store_true', help='Hide output messages that contain names and phone numbers (useful in GitHub actions).')
+parser.add_argument('--github-test', action='store_true', help='This is used to tell the script that it is being run from GitHub actions so it will do some things differently.')
 args = parser.parse_args()
 
-if not args.dry_run:
+if not args.dry_run and not args.github_test:
     # Configure Twilio credentials and phone number
     TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
     TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
@@ -22,6 +24,7 @@ if not args.dry_run:
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = config('AWS_REGION')
+S3_BUCKET = config('S3_BUCKET')
 # Create an S3 client
 s3 = boto3.client(
     's3', 
@@ -29,8 +32,6 @@ s3 = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
     region_name=AWS_REGION
 )
-# Define the S3 bucket name
-bucket_name = 'dobsondev-xmas-xchange'
 
 # ANSI escape codes for text color
 R = '\033[91m'
@@ -77,25 +78,34 @@ def upload_assigment_data_to_s3(assigment_data):
     file_object = io.BytesIO(assignment_data.encode())
     # Upload file object to S3
     current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_suffix = '_dryrun' if args.dry_run else ''
-    file_name = f"{current_datetime}_gift_assignments{file_suffix}.txt"
-    s3.upload_fileobj(file_object, bucket_name, file_name)
+    file_prefix = 'github_' if args.github_test else ''
+    file_suffix = '_dryrun' if args.dry_run or args.github_test else ''
+    file_name = f"{file_prefix}{current_datetime}_gift_assignments{file_suffix}.txt"
+    s3.upload_fileobj(file_object, S3_BUCKET, file_name)
     # Output what we did
-    if not args.dry_run:
+    if not args.dry_run and not args.github_test:
         print(f"Gift assignments sent successfully and file has been written to S3 as {file_name}.")
     else:
-        print(f"\n{R}DRY RUN{EC} of gift assignments performed and file has been written to S3 as {G}{file_name}{EC}.")
+        if not args.github_test:
+            new_line = '\n' if not args.hide_sensitive_output else ''
+            print(f"{new_line}{R}DRY RUN{EC} of gift assignments performed and file has been written to S3 as {G}{file_name}{EC}.")
+        else:
+            print(f"GitHub test of gift assignments performed and file has been written to S3 as {file_name}.")
 
 # Sort the assignments alphabetically by name
 assignment = dict(sorted(assignment.items(), key=lambda x: x[0]))
 assignment_data = ""
 
-if not args.dry_run:
+if not args.dry_run and not args.github_test:
     # Send messages using Twilio
     client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 else:
     assignment_data += f"---------------------------- DRY RUN ----------------------------\n\n"
-    print(f"\n{BG_R}---------------------------- DRY RUN ----------------------------{EC}\n")
+    if not args.github_test:
+        new_line = '\n' if not args.hide_sensitive_output else ''
+        print(f"{new_line}{BG_R}---------------------------- DRY RUN ----------------------------{EC}{new_line}")
+    else:
+        print("GitHub test DRY RUN")
 
 for person, recipient in assignment.items():
     person_phone = people_info[person]['phone_number']
@@ -105,7 +115,7 @@ for person, recipient in assignment.items():
     assignment_data += f"{person} -> {recipient}\n"
     assignment_data += f"  Preview message to {person} ({person_phone}):\n  {message}\n\n"
 
-    if not args.dry_run:
+    if not args.dry_run and not args.github_test:
         # Send a message via Twilo
         client.messages.create(
             to=person_phone,
@@ -113,8 +123,9 @@ for person, recipient in assignment.items():
             body=message
         )
     else:
-        # Output information to the terminal
-        print(f"{G}{person}{EC} -> {Y}{recipient}{EC}")
-        print(f"  Preview message to {G}{person}{EC} ({G}{person_phone}{EC}):\n  {B}{message}{EC}")
+        if not args.hide_sensitive_output and not args.github_test:
+            # Output information to the terminal
+            print(f"{G}{person}{EC} -> {Y}{recipient}{EC}")
+            print(f"  Preview message to {G}{person}{EC} ({G}{person_phone}{EC}):\n  {B}{message}{EC}")
 
 upload_assigment_data_to_s3(assignment_data)

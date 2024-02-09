@@ -63,3 +63,9 @@ docker run --rm xmas-xchange
 ```
 docker run --rm xmas-xchange --dry-run
 ```
+
+If you want to hide sensitive output (names and phone numbers), then use the following (this is used in the GitHub actions workflow to ensure nothing sensitive gets posted on GitHub.com):
+
+```
+docker run --rm xmas-xchange --dry-run --hide-sensitive-output
+```
