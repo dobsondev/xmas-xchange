@@ -1,4 +1,4 @@
-name: Run Gift Exchange
+name: Test Run Gift Exchange
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   run_script:
-    name: Run xmas-change.py
+    name: Test run xmas-change.py
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
