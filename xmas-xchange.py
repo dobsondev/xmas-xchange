@@ -110,7 +110,7 @@ else:
 for person, recipient in assignment.items():
     person_phone = people_info[person]['phone_number']
     recipient_phone = people_info[recipient]['phone_number']
-    message = f"Hello {person}! Your gift recipient is {recipient}. Merry Christmas!"
+    message = f"Welcome to the Xmas Gift Exchange.\n\nHello {person}! Your gift recipient is {recipient}. Merry Christmas!\n\nReply STOP to unsubscribe."
    
     assignment_data += f"{person} -> {recipient}\n"
     assignment_data += f"  Preview message to {person} ({person_phone}):\n  {message}\n\n"
