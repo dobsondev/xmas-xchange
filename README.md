@@ -172,3 +172,93 @@ docker run --env-file .env --rm xmas-xchange --github-test
 ```
 
 This is the equivalent of running `docker run --env-file .env --rm xmas-xchange --dry-run --hide-sensitive-output` and does a little extra output formatting to make it clear it's running on GitHub.
+
+### Using the `helper.py` Script
+
+I've added a helper script to retrieve the gift giver and reciepient based on the S3 file name as well as the gift givers name. This can be used in case someone's carrier blocks the SMS message or something to that effect.
+
+```bash
+docker run --env-file .env --rm --entrypoint python xmas-xchange helper.py "<S3_FILE_NAME>" "<GIFT_GIVER_NAME>"
+```
+
+The output from this should look like:
+
+```bash
+✅ S3 connection successful!
+Adam -> Beatrice
+```
+
+### Using the `test.py` Script
+
+The comprehensive test script validates your entire gift exchange workflow and provides confidence that everything works correctly before sending real SMS messages.
+
+#### What it Tests
+
+1. **Service Connections** - Validates both S3 and Twilio connectivity
+2. **Constraint Display** - Shows all constraints for transparency  
+3. **Dry-Run Execution** - Runs the main script and captures the S3 filename
+4. **Helper Script Validation** - Tests helper queries for **all participants**
+5. **Assignment Download** - Downloads and parses the full assignment from S3
+6. **Constraint Validation** - Ensures no constraint violations occurred
+7. **Completeness Check** - Verifies everyone gives and receives exactly once
+8. **Cross-Validation** - Confirms helper results match the full assignment perfectly
+
+#### Usage
+
+```bash
+docker run --env-file .env --rm --entrypoint python xmas-xchange test.py
+```
+
+#### Sample Output
+```
+=== Gift Exchange Workflow Test ===
+
+Loaded 7 people with constraints
+Constraints:
+  Adam cannot give to: Beatrice
+  Beatrice cannot give to: Adam
+  Carole cannot give to: Danielle
+  Danielle cannot give to: Carole
+  Edgar cannot give to: Frank
+  Frank cannot give to: Edgar, Danielle
+  Gray has no constraints
+
+Testing service connections...
+✅ S3 connection successful!
+✅ Twilio connection successful!
+✅ All service connections successful
+
+Running dry-run...
+✅ Dry-run completed successfully
+
+Testing helper queries for all 7 people
+  ✅ Adam -> Danielle
+  ✅ Beatrice -> Edgar
+  ✅ Carole -> Adam
+  ✅ Danielle -> Beatrice
+  ✅ Edgar -> Gray
+  ✅ Frank -> Carole
+  ✅ Gray -> Frank
+
+Downloading and validating full assignment...
+✅ Downloaded assignment file with 7 assignments
+
+Validating constraints...
+✅ All constraints satisfied
+Validating assignment completeness...
+✅ Assignment is complete and valid
+
+Cross-validating all 7 helper results...
+  ✅ Adam -> Danielle (matches)
+  ✅ Beatrice -> Edgar (matches)
+  ✅ Carole -> Adam (matches)
+  ✅ Danielle -> Beatrice (matches)
+  ✅ Edgar -> Gray (matches)
+  ✅ Frank -> Carole (matches)
+  ✅ Gray -> Frank (matches)
+
+🎉 ALL TESTS PASSED! 🎉
+Generated assignment file: 2025-08-15_20-29-02_gift_assignments_dryrun.txt
+```
+
+This comprehensive testing gives you full confidence in your gift exchange system before the real run!
