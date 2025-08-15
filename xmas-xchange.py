@@ -14,11 +14,10 @@ parser.add_argument('--hide-sensitive-output', action='store_true', help='Hide o
 parser.add_argument('--github-test', action='store_true', help='This is used to tell the script that it is being run from GitHub actions so it will do some things differently.')
 args = parser.parse_args()
 
-if not args.dry_run and not args.github_test:
-    # Configure Twilio credentials and phone number
-    TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
-    TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
-    TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
+# Configure Twilio credentials and phone number
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
 
 # Configure AWS credentials and region
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
@@ -32,6 +31,23 @@ s3 = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
     region_name=AWS_REGION
 )
+
+# Test S3 connection
+try:
+    s3.head_bucket(Bucket=S3_BUCKET)
+    print("✅ S3 connection successful!")
+except Exception as e:
+    print(f"❌ S3 connection failed: {e}")
+    exit(1)
+
+# Test Twilio connection
+try:
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    client.api.accounts.get(TWILIO_ACCOUNT_SID)
+    print("✅ Twilio connection successful!")
+except Exception as e:
+    print(f"❌ Twilio connection failed: {e}")
+    exit(1)
 
 # ANSI escape codes for text color
 R = '\033[91m'
