@@ -79,7 +79,7 @@ A participants entry should look like this:
 
 In this example, "Participant" is not allowed to match with "Wife" or "Brother" who would also have their own entries in the file. This way you can make sure that participants aren't matched up with their partners or whatever other constraints you might choose to have. Note that in this example I am using "Participant", "Wife" and "Brother" as sample names just to make it clear what each person is in relation to each other.
 
-### GitHub Actions Setup
+## GitHub Setup
 
 In order to setup your repository so that you can use the GitHub actions in this repository, you will need to add two secrets:
 
@@ -97,7 +97,7 @@ While not strictly required, I would recommend setting up branch protection for 
   - Require branches to be up to date before merging
   - `Test run xmas-change.py` status check is required
 
-### `ENV` Secret
+### `ENV` GitHub Secret
 
 These map directly to the above `.env` file and `json/data.json` files which are used to run this project on your local.
 
@@ -107,7 +107,7 @@ The `ENV` secret is a direct copy paste of your complete `.env` file. Once you h
 pbcopy < .env
 ```
 
-### `DATA_JSON` Secret
+### `DATA_JSON` GitHub Secret
 
 You can then paste the `.env` file's content into your repository as a secret named `ENV`.
 
@@ -119,19 +119,19 @@ cat json/data.json | base64
 
 Copy the output of this command and then paste it into your repository as a secret named `DATA_JSON`.
 
-### Test Run Gift Exchange
+### Test Run Gift Exchange on GitHub
 
 Once you have your secrets setup - everything should work with the GitHub workflows in this project. The **Test Run Gift Exchange** (`.github/test-build.yml`) workflow build the Docker image and a test run will be ran on the script where no SMS messages will be set. You can think of this like the "UAT" run of the script.
 
 The **Test Run Gift Exchange** (`.github/test-build.yml`) workflow run will create a file prefixed with `github_` and suffixed with `_dryrun` that will be uploaded to S3 so that you can inspect the results of the run. This allows you to ensure everything is working as intended for both the constraints and participant phone numbers. It will NOT send SMS messages to participants.
 
-### Run Gift Exchange
+### Run Gift Exchange on GitHub
 
 The **Run Gift Exchange** (`.github/run-script.yml`) workflow will build the Docker image and then run the script with the intention of sending SMS messages to the participants for the real gift exchange. You can think of this like the "production" run of the script.
 
 The **Run Gift Exchange** (`.github/run-script.yml`) workflow run will create a file with the gift exchange results and upload that to S3 in case you need to verify what participant got assigned to what other participant. The idea is this file will not be viewed unless needed so that no one knows who was assigned each other. No prefixes or suffixes will be added to the upload. This run will send out SMS messages to the participants to let them know who they were assigned in the gift exchange.
 
-## Docker
+## Run Locally with Docker
 
 Below you will find a summary of helpful Docker commands that might need to be used for this project.
 
