@@ -39,6 +39,31 @@ The `.env` file needs to contain all your credentials for Twilio and AWS. See `.
 6. AWS Region of S3 Bucket
 7. S3 Bucket Name
 
+To get your AWS credentials, you'll need to create an IAM user and access keys in the AWS console:
+
+1. Go to IAM Service:
+  - Log into AWS Console
+  - Search for "IAM" or go to https://console.aws.amazon.com/iam/
+2. Create IAM User:
+  - Click "Users" in left sidebar
+  - Click "Create user"
+  - Enter a username
+  - Click "Next"
+3. Set Permissions:
+  - Choose "Attach policies directly"
+  - Select the AWS services your app needs (either S3Full or only access to the bucket you want to use)
+  - Click "Next" then "Create user"
+4. Create Access Keys:
+  - Click on your new user
+  - Go to "Security credentials" tab
+  - Click "Create access key"
+  - Choose "Application running outside AWS"
+  - Click "Next" then "Create access key"
+5. Copy Credentials:
+  - Copy the Access key ID (this is your `AWS_ACCESS_KEY_ID`)
+  - Copy the Secret access key (this is your `AWS_SECRET_ACCESS_KEY`)
+  - Store them securely in your password vault - you can't view the secret key again
+
 ### `./json/data.json`
 
 This file needs to contain all the required information of the participants in the gift exchange. This should include their names, their mobile phone numbers (in the format of `+1##########`) and any constraints (people they cannot match with for the gift exchange). See `./json/data.example.json` for an example of this should be formatted.
@@ -116,28 +141,34 @@ Below you will find a summary of helpful Docker commands that might need to be u
 docker build -t xmas-xchange .
 ```
 
+To build and ensure there is no caching, use:
+
+```bash
+docker build --no-cache -t xmas-xchange .
+```
+
 ### Run the Docker Container
 
 ```bash
-docker run --rm xmas-xchange
+docker run --env-file .env --rm xmas-xchange
 ```
 
 ### Dry Run the Docker Container
 
 ```bash
-docker run --rm xmas-xchange --dry-run
+docker run --env-file .env --rm xmas-xchange --dry-run
 ```
 
 If you want to hide sensitive output (names and phone numbers), then use the following (this is used in the GitHub actions workflow to ensure nothing sensitive gets posted on GitHub.com):
 
 ```bash
-docker run --rm xmas-xchange --dry-run --hide-sensitive-output
+docker run --env-file .env --rm xmas-xchange --dry-run --hide-sensitive-output
 ```
 
 There is also an option specifically for when the script is run on a GitHub runner for testing:
 
 ```bash
-docker run --rm xmas-xchange --github-test
+docker run --env-file .env --rm xmas-xchange --github-test
 ```
 
-This is the equivalent of running `docker run --rm xmas-xchange --dry-run --hide-sensitive-output` and does a little extra output formatting to make it clear it's running on GitHub.
+This is the equivalent of running `docker run --env-file .env --rm xmas-xchange --dry-run --hide-sensitive-output` and does a little extra output formatting to make it clear it's running on GitHub.

@@ -27,7 +27,7 @@ jobs:
     - name: Run Docker Image
       run: |
         if [ ${{ github.event.inputs.dryRun }} == true ]; then
-          docker run --rm xmas-xchange --github-test
+          docker run --env-file .env --rm xmas-xchange --github-test
         else
-          docker run --rm xmas-xchange
+          docker run --env-file .env --rm xmas-xchange
         fi
