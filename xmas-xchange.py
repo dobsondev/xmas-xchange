@@ -1,147 +1,127 @@
-import argparse, boto3, io, json, random
-from datetime import datetime
+import argparse, json, random
 from decouple import config
-from twilio.rest import Client
-
-#
-# SETUP
-#
-
-# Parse command-line arguments
-parser = argparse.ArgumentParser(description='Send Christmas Gift Exchange text messages')
-parser.add_argument('--dry-run', action='store_true', help='Do a dry-run without sending SMS messages to the recipients.')
-parser.add_argument('--hide-sensitive-output', action='store_true', help='Hide output messages that contain names and phone numbers (useful in GitHub actions).')
-parser.add_argument('--github-test', action='store_true', help='This is used to tell the script that it is being run from GitHub actions so it will do some things differently.')
-args = parser.parse_args()
-
-# Configure Twilio credentials and phone number
-TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN')
-TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER')
-
-# Configure AWS credentials and region
-AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-AWS_REGION = config('AWS_REGION')
-S3_BUCKET = config('S3_BUCKET')
-# Create an S3 client
-s3 = boto3.client(
-    's3', 
-    aws_access_key_id=AWS_ACCESS_KEY_ID, 
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY, 
-    region_name=AWS_REGION
+from helper import (
+    setup_s3_client, setup_twilio_client, test_s3_connection, test_twilio_connection,
+    upload_assignment_data_to_s3, Colors
 )
 
-# Test S3 connection
-try:
-    s3.head_bucket(Bucket=S3_BUCKET)
-    print("✅ S3 connection successful!")
-except Exception as e:
-    print(f"❌ S3 connection failed: {e}")
-    exit(1)
+def parse_arguments():
+    """Parse command-line arguments"""
+    parser = argparse.ArgumentParser(description='Send Christmas Gift Exchange text messages')
+    parser.add_argument('--dry-run', action='store_true', help='Do a dry-run without sending SMS messages to the recipients.')
+    parser.add_argument('--hide-sensitive-output', action='store_true', help='Hide output messages that contain names and phone numbers (useful in GitHub actions).')
+    parser.add_argument('--github-test', action='store_true', help='This is used to tell the script that it is being run from GitHub actions so it will do some things differently.')
+    return parser.parse_args()
 
-# Test Twilio connection
-try:
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    client.api.accounts.get(TWILIO_ACCOUNT_SID)
-    print("✅ Twilio connection successful!")
-except Exception as e:
-    print(f"❌ Twilio connection failed: {e}")
-    exit(1)
+def load_people_data():
+    """Load people information from JSON file"""
+    with open('json/data.json') as json_file:
+        return json.load(json_file)
 
-# ANSI escape codes for text color
-R = '\033[91m'
-G = '\033[92m'
-Y = '\033[93m'
-B = '\033[94m'
-# ANSI escape codes for background color
-BG_R = '\033[41m'
-BG_G = '\033[42m'
-BG_Y = '\033[43m'
-BG_B = '\033[44m'
-# ANSI escape code to reset color to default
-EC = '\033[0m'
-
-#
-# SCRIPT
-#
-
-# Read combined data from the JSON file
-with open('json/data.json') as json_file:
-    people_info = json.load(json_file)
-
-# Extract people_info and constraints from the combined data
-constraints = {person: info['constraints'] for person, info in people_info.items()}
-# List of people
-people = list(people_info.keys())
-
-# Check if the assignment meets the constraints
-def check_constraints(assignment):
+def check_constraints(assignment, constraints):
+    """Check if the assignment meets the constraints"""
     for person, recipient in assignment.items():
         if recipient in constraints.get(person, []):
             return False
     return True
 
-# Keep shuffling until a valid assignment is found
-while True:
-    random.shuffle(people)
-    assignment = {people[i]: people[(i + 1) % len(people)] for i in range(len(people))}
-    if check_constraints(assignment):
-        break
+def generate_assignment(people, constraints):
+    """Generate a valid gift exchange assignment"""
+    while True:
+        random.shuffle(people)
+        assignment = {people[i]: people[(i + 1) % len(people)] for i in range(len(people))}
+        if check_constraints(assignment, constraints):
+            return assignment
 
-def upload_assigment_data_to_s3(assigment_data):
-    # Create a BytesIO object
-    file_object = io.BytesIO(assignment_data.encode())
-    # Upload file object to S3
-    current_datetime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_prefix = 'github_' if args.github_test else ''
-    file_suffix = '_dryrun' if args.dry_run or args.github_test else ''
-    file_name = f"{file_prefix}{current_datetime}_gift_assignments{file_suffix}.txt"
-    s3.upload_fileobj(file_object, S3_BUCKET, file_name)
-    # Output what we did
-    if not args.dry_run and not args.github_test:
-        print(f"Gift assignments sent successfully and file has been written to S3 as {file_name}.")
-    else:
-        if not args.github_test:
-            new_line = '\n' if not args.hide_sensitive_output else ''
-            print(f"{new_line}{R}DRY RUN{EC} of gift assignments performed and file has been written to S3 as {G}{file_name}{EC}.")
-        else:
-            print(f"GitHub test of gift assignments performed and file has been written to S3 as {file_name}.")
-
-# Sort the assignments alphabetically by name
-assignment = dict(sorted(assignment.items(), key=lambda x: x[0]))
-assignment_data = ""
-
-if not args.dry_run and not args.github_test:
-    # Send messages using Twilio
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-else:
-    assignment_data += f"---------------------------- DRY RUN ----------------------------\n\n"
-    if not args.github_test:
-        new_line = '\n' if not args.hide_sensitive_output else ''
-        print(f"{new_line}{BG_R}---------------------------- DRY RUN ----------------------------{EC}{new_line}")
-    else:
+def print_dry_run_header(is_github_test, hide_sensitive_output):
+    """Print the dry run header with appropriate formatting"""
+    if is_github_test:
         print("GitHub test DRY RUN")
-
-for person, recipient in assignment.items():
-    person_phone = people_info[person]['phone_number']
-    recipient_phone = people_info[recipient]['phone_number']
-    message = f"Welcome to the Gift Exchange!\n\nHello {person}! Your gift recipient is {recipient}. Merry Christmas!\n\nReply STOP to unsubscribe."
-   
-    assignment_data += f"{person} -> {recipient}\n"
-    assignment_data += f"  Preview message to {person} ({person_phone}):\n  {message}\n\n"
-
-    if not args.dry_run and not args.github_test:
-        # Send a message via Twilo
-        client.messages.create(
-            to=person_phone,
-            from_=TWILIO_PHONE_NUMBER,
-            body=message
-        )
     else:
-        if not args.hide_sensitive_output and not args.github_test:
-            # Output information to the terminal
-            print(f"{G}{person}{EC} -> {Y}{recipient}{EC}")
-            print(f"  Preview message to {G}{person}{EC} ({G}{person_phone}{EC}):\n  {B}{message}{EC}")
+        new_line = '\n' if not hide_sensitive_output else ''
+        print(f"{new_line}{Colors.BG_RED}---------------------------- DRY RUN ----------------------------{Colors.END}{new_line}")
 
-upload_assigment_data_to_s3(assignment_data)
+def create_message(person, recipient):
+    """Create the gift exchange message"""
+    return f"Welcome to the Gift Exchange!\n\nHello {person}! Your gift recipient is {recipient}. Merry Christmas!\n\nReply STOP to unsubscribe."
+
+def format_assignment_data(person, recipient, person_phone, message):
+    """Format assignment data for output"""
+    return f"{person} -> {recipient}\n  Preview message to {person} ({person_phone}):\n  {message}\n\n"
+
+def print_assignment_info(person, recipient, person_phone, message, hide_sensitive_output, is_github_test):
+    """Print assignment information to console (dry run only)"""
+    if not hide_sensitive_output and not is_github_test:
+        print(f"{Colors.GREEN}{person}{Colors.END} -> {Colors.YELLOW}{recipient}{Colors.END}")
+        print(f"  Preview message to {Colors.GREEN}{person}{Colors.END} ({Colors.GREEN}{person_phone}{Colors.END}):\n  {Colors.BLUE}{message}{Colors.END}")
+
+def send_message(twilio_client, person_phone, message):
+    """Send SMS message via Twilio"""
+    twilio_phone = config('TWILIO_PHONE_NUMBER')
+    twilio_client.messages.create(
+        to=person_phone,
+        from_=twilio_phone,
+        body=message
+    )
+
+def print_upload_result(file_name, is_dry_run, is_github_test, hide_sensitive_output):
+    """Print the S3 upload result message"""
+    if not is_dry_run and not is_github_test:
+        print(f"Gift assignments sent successfully and file has been written to S3 as {file_name}.")
+    elif is_github_test:
+        print(f"GitHub test of gift assignments performed and file has been written to S3 as {file_name}.")
+    else:
+        new_line = '\n' if not hide_sensitive_output else ''
+        print(f"{new_line}{Colors.RED}DRY RUN{Colors.END} of gift assignments performed and file has been written to S3 as {Colors.GREEN}{file_name}{Colors.END}.")
+
+def main():
+    # Parse arguments and load data
+    args = parse_arguments()
+    people_info = load_people_data()
+    
+    # Extract constraints and people list
+    constraints = {person: info['constraints'] for person, info in people_info.items()}
+    people = list(people_info.keys())
+    
+    # Setup and test connections
+    s3_client = setup_s3_client()
+    if not test_s3_connection(s3_client):
+        exit(1)
+    
+    if not test_twilio_connection():
+        exit(1)
+    
+    # Generate assignment
+    assignment = generate_assignment(people, constraints)
+    assignment = dict(sorted(assignment.items(), key=lambda x: x[0]))  # Sort alphabetically
+    
+    # Setup for message sending or dry run
+    is_dry_run = args.dry_run or args.github_test
+    twilio_client = None if is_dry_run else setup_twilio_client()
+    
+    # Print dry run header if needed
+    assignment_data = ""
+    if is_dry_run:
+        assignment_data += "---------------------------- DRY RUN ----------------------------\n\n"
+        print_dry_run_header(args.github_test, args.hide_sensitive_output)
+    
+    # Process each assignment
+    for person, recipient in assignment.items():
+        person_phone = people_info[person]['phone_number']
+        message = create_message(person, recipient)
+        
+        # Add to assignment data for S3 upload
+        assignment_data += format_assignment_data(person, recipient, person_phone, message)
+        
+        # Send message or print info
+        if is_dry_run:
+            print_assignment_info(person, recipient, person_phone, message, args.hide_sensitive_output, args.github_test)
+        else:
+            send_message(twilio_client, person_phone, message)
+    
+    # Upload to S3 and print result
+    file_name = upload_assignment_data_to_s3(s3_client, assignment_data, args.dry_run, args.github_test)
+    print_upload_result(file_name, args.dry_run, args.github_test, args.hide_sensitive_output)
+
+if __name__ == '__main__':
+    main()
