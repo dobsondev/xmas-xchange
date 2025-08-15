@@ -23,11 +23,8 @@ jobs:
     - name: Run Docker Image
       run: docker run --env-file .env --rm xmas-xchange --github-test
 
-    - name: Copy example data for testing
-      run: cp ./json/data.example.json ./json/data.json
-
-    - name: Run test.py script
-      run: docker run --env-file .env --rm --entrypoint python xmas-xchange test.py
+    - name: Run test.py script with example data
+      run: docker run --env-file .env --rm -v $(pwd)/json/data.example.json:/app/json/data.json --entrypoint python xmas-xchange test.py
 
     - name: Reminder to clean up test files
       run: echo "⚠️ Remember to manually clean up any github_*_dryrun.txt files from S3 as needed!"
