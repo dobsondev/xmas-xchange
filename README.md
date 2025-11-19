@@ -30,7 +30,6 @@ For annual gift exchange - this is what you'll use most:
 **⚠️ Important:** Always run the test first each year to verify everything works!
 
 ## 🔄 Workflow Overview
-
 ```
 Update Participants → Test Run → Verify Results → Real Run → SMS Sent!
                           ↓              ↓
@@ -42,13 +41,14 @@ Update Participants → Test Run → Verify Results → Real Run → SMS Sent!
 **Required Services:**
 - **Twilio:** SMS service (~$0.10 per message sent)
 - **AWS S3:** File storage (~$0.01/month for small files)
+- **AWS IAM:** OIDC authentication for GitHub Actions (no cost)
 
 **Setup Time:** ~30 minutes first time, ~5 minutes annually
 
 You will need the following accounts in order to get this project to work:
 
 1. Twilio account with a number capable of sending SMS
-2. Amazon Web Services account with S3 storage and IAM user setup to interact with S3
+2. Amazon Web Services account with S3 storage and IAM configured for GitHub Actions OIDC
 
 ## 📋 Annual Checklist
 
@@ -62,18 +62,99 @@ Before running each year:
 
 **Pro tip:** Keep your local `json/data.json` updated year-round, then just update the GitHub secret when ready to run.
 
+## AWS Setup (One-Time)
+
+This project uses **OpenID Connect (OIDC)** for secure, temporary AWS credentials instead of long-lived access keys.
+
+### Step 1: Create OIDC Identity Provider
+
+1. Go to **IAM Console** → **Identity providers** → **Add provider**
+2. Select **OpenID Connect**
+3. Configure:
+   - **Provider URL**: `https://token.actions.githubusercontent.com`
+   - **Audience**: `sts.amazonaws.com`
+4. Click **Add provider**
+
+### Step 2: Create IAM Role for GitHub Actions
+
+1. Go to **IAM** → **Roles** → **Create role**
+2. Select **Web identity**
+3. Choose the identity provider you just created
+4. For **Audience**, select `sts.amazonaws.com`
+5. Click **Next**
+
+### Step 3: Configure Trust Policy
+
+In the trust policy, replace with the following (update `YOUR_ACCOUNT_ID` and your GitHub username):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/xmas-xchange:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Step 4: Create S3 Permission Policy
+
+1. Name the role `github-actions-xmas-xchange-role`
+2. After creating the role, go to the role → **Permissions** tab
+3. Click **Add permissions** → **Create inline policy**
+4. Use JSON editor and paste (update `your-bucket-name`):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::your-bucket-name"
+    }
+  ]
+}
+```
+
+5. Name it `XmasExchangeS3Access` and create the policy
+
+**✅ AWS Setup Complete!** GitHub Actions will now use temporary credentials via OIDC.
+
 ## GitHub Setup
 
 ### Setting Up GitHub Secrets
 
-You need two secrets in your GitHub repository:
+You need the following secrets in your GitHub repository:
 
-**`ENV` Secret:**
-1. Copy your working local `.env` file content (see Local Setup section for details)
-2. Go to your repository → Settings → Secrets and variables → Actions
-3. Click "New repository secret"
-4. Name: `ENV`
-5. Paste your `.env` file content directly
+**Twilio Secrets:**
+1. Go to your repository → Settings → Secrets and variables → Actions
+2. Create these secrets:
+   - `TWILIO_ACCOUNT_SID` - Your Twilio Account SID
+   - `TWILIO_AUTH_TOKEN` - Your Twilio Auth Token
+   - `TWILIO_PHONE_NUMBER` - Your Twilio phone number (format: `+15556667777`)
+
+**S3 Secret:**
+1. `S3_BUCKET` - Your S3 bucket name
 
 **`DATA_JSON` Secret:**
 1. Run: `cat json/data.json | base64`
@@ -120,42 +201,47 @@ The `.env` file needs to contain all your credentials for Twilio and AWS. See `.
 1. Twilio Account SID
 2. Twilio Auth Token
 3. Twilio Phone number in the format of `+1##########`
-4. AWS IAM User Access Key
-5. AWS IAM User Secret Access Key
-6. AWS Region of S3 Bucket
-7. S3 Bucket Name
+4. AWS IAM User Access Key (for local development only)
+5. AWS IAM User Secret Access Key (for local development only)
+6. AWS Session Token (optional - only needed for temporary credentials)
+7. AWS Region of S3 Bucket
+8. S3 Bucket Name
 
-To get your AWS credentials, you'll need to create an IAM user and access keys in the AWS console:
+#### For Local Development: Creating AWS IAM User
+
+For local development, you'll need an IAM user with access keys:
 
 1. Go to IAM Service:
-  - Log into AWS Console
-  - Search for "IAM" or go to https://console.aws.amazon.com/iam/
+   - Log into AWS Console
+   - Search for "IAM" or go to https://console.aws.amazon.com/iam/
 2. Create IAM User:
-  - Click "Users" in left sidebar
-  - Click "Create user"
-  - Enter a username
-  - Click "Next"
+   - Click "Users" in left sidebar
+   - Click "Create user"
+   - Enter a username (e.g., `xmas-exchange-local-dev`)
+   - Click "Next"
 3. Set Permissions:
-  - Choose "Attach policies directly"
-  - Select the AWS services your app needs (either S3Full or only access to the bucket you want to use)
-  - Click "Next" then "Create user"
+   - Choose "Attach policies directly"
+   - Click "Create policy" and use the same S3 policy as the OIDC role above
+   - Attach the policy to your user
+   - Click "Next" then "Create user"
 4. Create Access Keys:
-  - Click on your new user
-  - Go to "Security credentials" tab
-  - Click "Create access key"
-  - Choose "Application running outside AWS"
-  - Click "Next" then "Create access key"
+   - Click on your new user
+   - Go to "Security credentials" tab
+   - Click "Create access key"
+   - Choose "Application running outside AWS"
+   - Click "Next" then "Create access key"
 5. Copy Credentials:
-  - Copy the Access key ID (this is your `AWS_ACCESS_KEY_ID`)
-  - Copy the Secret access key (this is your `AWS_SECRET_ACCESS_KEY`)
-  - Store them securely in your password vault - you can't view the secret key again
+   - Copy the Access key ID (this is your `AWS_ACCESS_KEY_ID`)
+   - Copy the Secret access key (this is your `AWS_SECRET_ACCESS_KEY`)
+   - Store them securely in your password vault - you can't view the secret key again
+
+**Note:** GitHub Actions uses OIDC and doesn't need these access keys. The access keys are only for local development.
 
 ### `./json/data.json`
 
 This file needs to contain all the required information of the participants in the gift exchange. This should include their names, their mobile phone numbers (in the format of `+1##########`) and any constraints (people they cannot match with for the gift exchange). See `./json/data.example.json` for an example of how this should be formatted.
 
 A participants entry should look like this:
-
 ```json
 "Participant": {
     "phone_number": "+15556667777",
@@ -170,37 +256,31 @@ In this example, "Participant" is not allowed to match with "Wife" or "Brother" 
 Below you will find a summary of helpful Docker commands that might need to be used for this project.
 
 ### Build the Docker Image
-
 ```bash
 docker build -t xmas-xchange .
 ```
 
 To build and ensure there is no caching, use:
-
 ```bash
 docker build --no-cache -t xmas-xchange .
 ```
 
 ### Run the Docker Container
-
 ```bash
 docker run --env-file .env --rm xmas-xchange
 ```
 
 ### Dry Run the Docker Container
-
 ```bash
 docker run --env-file .env --rm xmas-xchange --dry-run
 ```
 
 If you want to hide sensitive output (names and phone numbers), then use the following (this is used in the GitHub actions workflow to ensure nothing sensitive gets posted on GitHub.com):
-
 ```bash
 docker run --env-file .env --rm xmas-xchange --dry-run --hide-sensitive-output
 ```
 
 There is also an option specifically for when the script is run on a GitHub runner for testing:
-
 ```bash
 docker run --env-file .env --rm xmas-xchange --github-test
 ```
@@ -210,13 +290,11 @@ This is the equivalent of running `docker run --env-file .env --rm xmas-xchange 
 ### Using the `helper.py` Script
 
 I've added a helper script to retrieve the gift giver and recipient based on the S3 file name as well as the gift givers name. This can be used in case someone's carrier blocks the SMS message or something to that effect.
-
 ```bash
 docker run --env-file .env --rm --entrypoint python xmas-xchange helper.py "<S3_FILE_NAME>" "<GIFT_GIVER_NAME>"
 ```
 
 The output from this should look like:
-
 ```bash
 ✅ S3 connection successful!
 Adam -> Beatrice
@@ -238,7 +316,6 @@ The comprehensive test script validates your entire gift exchange workflow and p
 8. **Cross-Validation** - Confirms helper results match the full assignment perfectly
 
 #### Usage
-
 ```bash
 docker run --env-file .env --rm --entrypoint python xmas-xchange test.py
 ```
@@ -301,8 +378,16 @@ This comprehensive testing gives you full confidence in your gift exchange syste
 
 **Test workflow fails?**
 - Check GitHub secrets are set correctly
-- Verify Twilio/AWS credentials haven't expired
+- Verify Twilio credentials haven't expired
+- Ensure AWS OIDC role exists and has correct trust policy
 - Make sure your S3 bucket exists and is accessible
+- Verify the IAM role has the correct S3 permissions
+
+**AWS OIDC authentication fails?**
+- Verify OIDC identity provider exists in IAM
+- Check the trust policy on your GitHub Actions role
+- Ensure the `repo:` condition matches your repository exactly
+- Confirm the role has the inline S3 policy attached
 
 **Participant doesn't receive SMS?**
 - Use helper script: `docker run --env-file .env --rm --entrypoint python xmas-xchange helper.py "<filename>" "<name>"`
@@ -314,10 +399,16 @@ This comprehensive testing gives you full confidence in your gift exchange syste
 - Only view if absolutely necessary to preserve surprise!
 
 **GitHub Action fails with secrets error?**
-- Verify both `ENV` and `DATA_JSON` secrets are set in repository settings
+- Verify all Twilio and S3 secrets are set in repository settings
 - For `DATA_JSON`: ensure you used `base64` encoding: `cat json/data.json | base64`
 
 **Local setup not working?**
 - Verify `.env` file exists and has all required variables
+- For local development, ensure you have IAM user access keys (not OIDC)
 - Check `json/data.json` exists and follows the correct format
 - Test Docker connectivity: `docker run hello-world`
+
+**S3 403 Forbidden errors?**
+- Ensure the IAM role (for GitHub) or IAM user (for local) has the S3 permissions
+- Verify bucket name matches in both the policy and your secrets/env file
+- Check that `AWS_SESSION_TOKEN` is being passed for OIDC credentials
