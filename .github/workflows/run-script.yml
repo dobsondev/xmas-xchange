@@ -8,6 +8,10 @@ on:
         default: true
         type: boolean
 
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
 jobs:
   test_run_script:
     name: Run xmas-change.py
@@ -15,8 +19,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::157437238176:role/github-actions-xmas-xchange-role
+        aws-region: ca-central-1
+
     - name: Generate .env
-      run: echo "${{ secrets.ENV }}" > .env
+      run: |
+        cat << EOF > .env
+        TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}
+        AWS_REGION=${{ env.AWS_REGION }}
+        S3_BUCKET=${{ secrets.S3_BUCKET }}
+        EOF
 
     - name: Generate json/data.json
       run: echo "${{ secrets.DATA_JSON }}" | base64 -d > ./json/data.json
@@ -27,7 +44,15 @@ jobs:
     - name: Run Docker Image
       run: |
         if [ ${{ github.event.inputs.dryRun }} == true ]; then
-          docker run --env-file .env --rm xmas-xchange --github-test
+          docker run --env-file .env \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            --rm xmas-xchange --github-test
         else
-          docker run --env-file .env --rm xmas-xchange
+          docker run --env-file .env \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            --rm xmas-xchange
         fi

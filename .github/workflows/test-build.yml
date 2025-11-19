@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
 jobs:
   run_script:
     name: Test run xmas-change.py
@@ -11,8 +15,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::157437238176:role/github-actions-xmas-xchange-role
+        aws-region: ca-central-1
+
     - name: Generate .env
-      run: echo "${{ secrets.ENV }}" > .env
+      run: |
+        cat << EOF > .env
+        TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}
+        AWS_REGION=${{ env.AWS_REGION }}
+        S3_BUCKET=${{ secrets.S3_BUCKET }}
+        EOF
 
     - name: Generate json/data.json
       run: echo "${{ secrets.DATA_JSON }}" | base64 -d > ./json/data.json
@@ -21,10 +38,21 @@ jobs:
       run: docker build -t xmas-xchange .
 
     - name: Run Docker Image
-      run: docker run --env-file .env --rm xmas-xchange --github-test
+      run: |
+        docker run --env-file .env \
+          -e AWS_ACCESS_KEY_ID \
+          -e AWS_SECRET_ACCESS_KEY \
+          -e AWS_SESSION_TOKEN \
+          --rm xmas-xchange --github-test
 
     - name: Run test.py script with example data
-      run: docker run --env-file .env --rm -v $(pwd)/json/data.example.json:/app/json/data.json --entrypoint python xmas-xchange test.py
+      run: |
+        docker run --env-file .env \
+          -e AWS_ACCESS_KEY_ID \
+          -e AWS_SECRET_ACCESS_KEY \
+          -e AWS_SESSION_TOKEN \
+          --rm -v $(pwd)/json/data.example.json:/app/json/data.json \
+          --entrypoint python xmas-xchange test.py
 
     - name: Reminder to clean up test files
       run: echo "⚠️ Remember to manually clean up any github_*_dryrun.txt files from S3 as needed!"
