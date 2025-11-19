@@ -8,6 +8,10 @@ on:
         default: true
         type: boolean
 
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
 jobs:
   test_run_script:
     name: Run xmas-change.py
@@ -15,8 +19,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::157437238176:role/github-actions-xmas-xchange-role
+        aws-region: ca-central-1
+        output-credentials: true
+
     - name: Generate .env
-      run: echo "${{ secrets.ENV }}" > .env
+      run: |
+        cat << EOF > .env
+        TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}
+        AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }}
+        AWS_REGION=ca-central-1
+        S3_BUCKET=${{ secrets.S3_BUCKET }}
+        EOF
 
     - name: Generate json/data.json
       run: echo "${{ secrets.DATA_JSON }}" | base64 -d > ./json/data.json
