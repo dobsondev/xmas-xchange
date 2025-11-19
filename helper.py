@@ -23,14 +23,20 @@ def setup_s3_client():
     """Setup and return S3 client using environment variables"""
     aws_access_key_id = config('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = config('AWS_SECRET_ACCESS_KEY')
+    aws_session_token = config('AWS_SESSION_TOKEN', default=None)  # Add this
     aws_region = config('AWS_REGION')
     
-    return boto3.client(
-        's3',
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=aws_region
-    )
+    client_kwargs = {
+        'aws_access_key_id': aws_access_key_id,
+        'aws_secret_access_key': aws_secret_access_key,
+        'region_name': aws_region
+    }
+    
+    # Only add session token if it exists (for OIDC/temporary credentials)
+    if aws_session_token:
+        client_kwargs['aws_session_token'] = aws_session_token
+    
+    return boto3.client('s3', **client_kwargs)
 
 def setup_twilio_client():
     """Setup and return Twilio client using environment variables"""
