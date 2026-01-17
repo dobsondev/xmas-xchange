@@ -33,6 +33,8 @@ func GetParticipantsFromToml(tomlFilePtr *string) []Participant {
 	return participants
 }
 
+// PrintParticipants outputs participant information to stdout.
+// This function is not unit tested as it only performs console output formatting.
 func PrintParticipants(participants []Participant) {
 	for _, person := range participants {
 		fmt.Printf("Name: %s, Number: %s, Restrictions: %v\n", person.Name, person.Number, person.Restrictions)

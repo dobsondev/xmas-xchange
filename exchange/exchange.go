@@ -18,27 +18,49 @@ type GiftExchange struct {
 	Receiver string
 }
 
-func NewExchange(participants []Participant) Exchange {
-	exchange := Exchange{
-		GiftingInfo: []GiftExchange{},
+func NewExchange(participants []Participant, maxAttempts int) Exchange {
+	var err error
+	var attempts int = 1
+
+	for attempts <= maxAttempts {
+		exchange := Exchange{
+			GiftingInfo: []GiftExchange{},
+		}
+
+		success := true
+		for _, giver := range participants {
+			exchange, err = createSingleExchange(giver, participants, exchange)
+			if err != nil {
+				slog.Debug("Failed to create exchange, trying again...", "error", err, "attempt", attempts, "max attempts", maxAttempts)
+				attempts++
+				success = false
+				break
+			}
+		}
+
+		if success {
+			return exchange
+		}
 	}
-	for _, giver := range participants {
-		exchange = createSingleExchange(giver, participants, exchange)
-	}
-	return exchange
+
+	panic("Could not create a valid exchange after multiple attempts. Please check participant restrictions!")
 }
 
-func createSingleExchange(giver Participant, participants []Participant, exchange Exchange) Exchange {
-	receiver := determineReciever(giver, participants, exchange)
+func createSingleExchange(giver Participant, participants []Participant, exchange Exchange) (Exchange, error) {
+	receiver, err := determineReciever(giver, participants, exchange)
+	if err != nil {
+		return Exchange{}, err
+	}
+
 	giftExchange := GiftExchange{
 		Giver:    giver.Name,
 		Receiver: receiver.Name,
 	}
 	exchange.GiftingInfo = append(exchange.GiftingInfo, giftExchange)
-	return exchange
+	return exchange, nil
 }
 
-func determineReciever(giver Participant, participants []Participant, exchange Exchange) Participant {
+func determineReciever(giver Participant, participants []Participant, exchange Exchange) (Participant, error) {
 	potentialReceivers := participants
 
 	// Can't give to themselves
@@ -72,11 +94,19 @@ func determineReciever(giver Participant, participants []Participant, exchange E
 	}
 	potentialReceivers = filteredReceivers
 
+	// Check if there are no valid receivers
+	if len(potentialReceivers) == 0 {
+		slog.Debug("No valid receiver found", "giver", giver.Name)
+		return Participant{}, fmt.Errorf("no valid receiver found for %s", giver.Name)
+	}
+
 	randomIndex := rand.Intn(len(potentialReceivers))
 	receiver := potentialReceivers[randomIndex]
-	return receiver
+	return receiver, nil
 }
 
+// PrintExchange outputs the gift exchange assignments to stdout.
+// This function is not unit tested as it only performs console output formatting.
 func PrintExchange(exchange Exchange) {
 	for _, giftExchange := range exchange.GiftingInfo {
 		fmt.Printf("Giver: %s -> Receiver: %s\n", giftExchange.Giver, giftExchange.Receiver)

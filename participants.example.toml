@@ -1,0 +1,34 @@
+[[participant]]
+name = "Alice"
+number = "+15551000001"
+restrictions = ["Bob"]
+
+[[participant]]
+name = "Bob"
+number = "+15551000002"
+restrictions = []
+
+[[participant]]
+name = "Carol"
+number = "+15551000003"
+restrictions = ["Alice"]
+
+[[participant]]
+name = "Dave"
+number = "+15551000004"
+restrictions = ["Eve"]
+
+[[participant]]
+name = "Eve"
+number = "+15551000005"
+restrictions = ["Dave"]
+
+[[participant]]
+name = "Frank"
+number = "+15551000006"
+restrictions = ["Grace"]
+
+[[participant]]
+name = "Grace"
+number = "+15551000007"
+restrictions = ["Frank"]
