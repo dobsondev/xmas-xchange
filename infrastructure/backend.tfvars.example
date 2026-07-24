@@ -1,0 +1,8 @@
+# Backend Configuration for Terraform State Storage
+# Copy this file to backend.tfvars and update with your values
+# backend.tfvars is gitignored to protect sensitive configuration
+
+bucket       = "your-terraform-state-bucket-name"
+key          = "xmas-xchange/terraform.tfstate"
+use_lockfile = true
+region       = "us-east-1"
