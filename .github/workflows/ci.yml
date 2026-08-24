@@ -31,3 +31,42 @@ jobs:
 
       - name: Test
         run: make test-verbose
+
+  twilio-smoke-test:
+    name: Twilio Smoke Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: make build
+
+      - name: Generate test participants.toml
+        run: |
+          cat << 'EOF' > participants.toml
+          [[participant]]
+          name = "Test Participant One"
+          number = "+15005550006"
+          restrictions = []
+
+          [[participant]]
+          name = "Test Participant Two"
+          number = "+15005550006"
+          restrictions = []
+          EOF
+
+      - name: Compute test exchange
+        run: ./bin/xmas-xchange exchange --filename=smoke-test.toml
+
+      - name: Send via Twilio test credentials
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TEST_TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TEST_TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: "+15005550006"
+        run: ./bin/xmas-xchange sendsms smoke-test.toml --dry-run=false --quiet
