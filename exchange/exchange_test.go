@@ -23,17 +23,17 @@ func TestNewExchange_MultipleAttempts(t *testing.T) {
 	for i := 0; i < numAttempts; i++ {
 		t.Run("Exchange attempt", func(t *testing.T) {
 			// This should not panic
-			exchange := NewExchange(participants, 50)
+			exchanges := NewExchange(participants, 50)
 
 			// Verify basic constraints
-			if len(exchange.GiftingInfo) != len(participants) {
-				t.Errorf("Expected %d gift exchanges, got %d", len(participants), len(exchange.GiftingInfo))
+			if len(exchanges) != len(participants) {
+				t.Errorf("Expected %d gift exchanges, got %d", len(participants), len(exchanges))
 			}
 
 			// Verify everyone is assigned as a giver
 			givers := make(map[string]bool)
-			for _, gift := range exchange.GiftingInfo {
-				givers[gift.Giver] = true
+			for _, gift := range exchanges {
+				givers[gift.Giver.Name] = true
 			}
 			if len(givers) != len(participants) {
 				t.Errorf("Expected %d unique givers, got %d", len(participants), len(givers))
@@ -41,17 +41,17 @@ func TestNewExchange_MultipleAttempts(t *testing.T) {
 
 			// Verify everyone is assigned as a receiver
 			receivers := make(map[string]bool)
-			for _, gift := range exchange.GiftingInfo {
-				receivers[gift.Receiver] = true
+			for _, gift := range exchanges {
+				receivers[gift.Receiver.Name] = true
 			}
 			if len(receivers) != len(participants) {
 				t.Errorf("Expected %d unique receivers, got %d", len(participants), len(receivers))
 			}
 
 			// Verify no one gives to themselves
-			for _, gift := range exchange.GiftingInfo {
-				if gift.Giver == gift.Receiver {
-					t.Errorf("Participant %s is giving to themselves", gift.Giver)
+			for _, gift := range exchanges {
+				if gift.Giver.Name == gift.Receiver.Name {
+					t.Errorf("Participant %s is giving to themselves", gift.Giver.Name)
 				}
 			}
 
@@ -61,10 +61,10 @@ func TestNewExchange_MultipleAttempts(t *testing.T) {
 				restrictionMap[p.Name] = p.Restrictions
 			}
 
-			for _, gift := range exchange.GiftingInfo {
-				for _, restricted := range restrictionMap[gift.Giver] {
-					if gift.Receiver == restricted {
-						t.Errorf("Participant %s is giving to restricted person %s", gift.Giver, gift.Receiver)
+			for _, gift := range exchanges {
+				for _, restricted := range restrictionMap[gift.Giver.Name] {
+					if gift.Receiver.Name == restricted {
+						t.Errorf("Participant %s is giving to restricted person %s", gift.Giver.Name, gift.Receiver.Name)
 					}
 				}
 			}
@@ -97,9 +97,9 @@ func TestNewExchange_NoRestrictions(t *testing.T) {
 		{Name: "Oscar", Number: "+15558000003", Restrictions: []string{}},
 	}
 
-	exchange := NewExchange(participants, 50)
+	exchanges := NewExchange(participants, 50)
 
-	if len(exchange.GiftingInfo) != len(participants) {
-		t.Errorf("Expected %d gift exchanges, got %d", len(participants), len(exchange.GiftingInfo))
+	if len(exchanges) != len(participants) {
+		t.Errorf("Expected %d gift exchanges, got %d", len(participants), len(exchanges))
 	}
 }

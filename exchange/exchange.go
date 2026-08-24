@@ -10,26 +10,20 @@ import (
 )
 
 type Exchange struct {
-	GiftingInfo []GiftExchange
+	Giver    Participant `toml:"giver"`
+	Receiver Participant `toml:"receiver"`
 }
 
-type GiftExchange struct {
-	Giver    string
-	Receiver string
-}
-
-func NewExchange(participants []Participant, maxAttempts int) Exchange {
+func NewExchange(participants []Participant, maxAttempts int) []Exchange {
 	var err error
 	var attempts int = 1
 
 	for attempts <= maxAttempts {
-		exchange := Exchange{
-			GiftingInfo: []GiftExchange{},
-		}
+		exchanges := []Exchange{}
 
 		success := true
 		for _, giver := range participants {
-			exchange, err = createSingleExchange(giver, participants, exchange)
+			exchanges, err = createSingleExchange(giver, participants, exchanges)
 			if err != nil {
 				slog.Debug("Failed to create exchange, trying again...", "error", err, "attempt", attempts, "max attempts", maxAttempts)
 				attempts++
@@ -39,28 +33,28 @@ func NewExchange(participants []Participant, maxAttempts int) Exchange {
 		}
 
 		if success {
-			return exchange
+			return exchanges
 		}
 	}
 
 	panic("Could not create a valid exchange after multiple attempts. Please check participant restrictions!")
 }
 
-func createSingleExchange(giver Participant, participants []Participant, exchange Exchange) (Exchange, error) {
-	receiver, err := determineReciever(giver, participants, exchange)
+func createSingleExchange(giver Participant, participants []Participant, exchanges []Exchange) ([]Exchange, error) {
+	receiver, err := determineReceiver(giver, participants, exchanges)
 	if err != nil {
-		return Exchange{}, err
+		return nil, err
 	}
 
-	giftExchange := GiftExchange{
-		Giver:    giver.Name,
-		Receiver: receiver.Name,
+	exchange := Exchange{
+		Giver:    giver,
+		Receiver: receiver,
 	}
-	exchange.GiftingInfo = append(exchange.GiftingInfo, giftExchange)
-	return exchange, nil
+	exchanges = append(exchanges, exchange)
+	return exchanges, nil
 }
 
-func determineReciever(giver Participant, participants []Participant, exchange Exchange) (Participant, error) {
+func determineReceiver(giver Participant, participants []Participant, exchanges []Exchange) (Participant, error) {
 	potentialReceivers := participants
 
 	// Can't give to themselves
@@ -72,9 +66,9 @@ func determineReciever(giver Participant, participants []Participant, exchange E
 		slog.Debug("Restriction", "giver", giver.Name, "restricted", restrictedNames)
 	}
 	// Can't give to someone who's already receiving a gift
-	for _, giftExchange := range exchange.GiftingInfo {
-		badNames = append(badNames, giftExchange.Receiver)
-		slog.Debug("Already receiving", "giver", giftExchange.Giver, "receiver", giftExchange.Receiver)
+	for _, exchange := range exchanges {
+		badNames = append(badNames, exchange.Receiver.Name)
+		slog.Debug("Already receiving", "giver", exchange.Giver.Name, "receiver", exchange.Receiver.Name)
 	}
 
 	// Filter out bad names
@@ -107,8 +101,8 @@ func determineReciever(giver Participant, participants []Participant, exchange E
 
 // PrintExchange outputs the gift exchange assignments to stdout.
 // This function is not unit tested as it only performs console output formatting.
-func PrintExchange(exchange Exchange) {
-	for _, giftExchange := range exchange.GiftingInfo {
-		fmt.Printf("Giver: %s -> Receiver: %s\n", giftExchange.Giver, giftExchange.Receiver)
+func PrintExchange(exchanges []Exchange) {
+	for _, exchange := range exchanges {
+		fmt.Printf("Giver: %s -> Receiver: %s\n", exchange.Giver.Name, exchange.Receiver.Name)
 	}
 }

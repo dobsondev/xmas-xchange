@@ -5,6 +5,9 @@
 *.toml
 !participants.example.toml
 
+exchange-toml/*
+!exchange-toml/.gitkeep
+
 # Binaries
 bin/*
 !bin/.gitkeep

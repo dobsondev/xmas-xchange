@@ -1,5 +1,5 @@
 build:
-	go build -o bin/xmas-xchange main.go
+	go build -o bin/xmas-xchange .
 
 run:
 	go run .
