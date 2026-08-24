@@ -1,0 +1,30 @@
+# Core local Terraform working directory (contains downloaded plugins and modules)
+.terraform/
+
+# Local state files and state backups (contain plain-text secrets and infrastructure metadata)
+*.tfstate
+*.tfstate.backup
+
+# Crash logs (generated only when an error or panic occurs)
+crash.log
+crash.*.log
+
+# Exclude all variable files by default (they usually contain sensitive credentials)
+*.tfvars
+*.tfvars.json
+
+# Allow specific, safe variable templates to be tracked if needed
+!*.example.tfvars
+
+# Local configuration overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration file
+.terraformrc
+terraform.rc
+
+# Local execution plan files
+*.tfplan

@@ -1,3 +1,7 @@
+.env
+.env.*
+!.env.sample
+
 *.toml
 !participants.example.toml
 
@@ -8,3 +12,6 @@ bin/*
 # Test coverage
 coverage.out
 coverage.html
+
+# Previous Python app
+json/*
