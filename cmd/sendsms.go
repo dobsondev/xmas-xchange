@@ -78,7 +78,7 @@ var sendSMSCmd = &cobra.Command{
 				if sendSMSQuietFlag {
 					fmt.Printf("[dry run] Would send message %d/%d\n", i+1, total)
 				} else {
-					fmt.Printf("[dry run] Would send to %s (%s): %s\n", ex.Giver.Name, ex.Giver.Number, body)
+					fmt.Printf("[dry run] Would send to %s (%s): %s\n", ex.Giver.Name, sms.FormatPhoneNumber(ex.Giver.Number), body)
 				}
 				sent++
 				continue

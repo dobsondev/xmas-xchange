@@ -56,3 +56,26 @@ func TestSend_Error(t *testing.T) {
 		t.Errorf("Expected an error, got nil")
 	}
 }
+
+func TestFormatPhoneNumber(t *testing.T) {
+	testCases := []struct {
+		name   string
+		number string
+		want   string
+	}{
+		{"standard NANP number", "+15556667777", "+1 555 666 7777"},
+		{"non-NANP number unchanged", "+442071234567", "+442071234567"},
+		{"too few digits unchanged", "+1555666777", "+1555666777"},
+		{"missing plus unchanged", "15556667777", "15556667777"},
+		{"empty string unchanged", "", ""},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FormatPhoneNumber(tc.number)
+			if got != tc.want {
+				t.Errorf("FormatPhoneNumber(%q) = %q, want %q", tc.number, got, tc.want)
+			}
+		})
+	}
+}

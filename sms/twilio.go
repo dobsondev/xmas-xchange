@@ -2,10 +2,24 @@ package sms
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/twilio/twilio-go"
 	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
 )
+
+var nanpNumber = regexp.MustCompile(`^\+1(\d{3})(\d{3})(\d{4})$`)
+
+// FormatPhoneNumber formats a NANP E.164 number (+1XXXXXXXXXX) as "+1 XXX XXX XXXX"
+// for human-readable display. Numbers that don't match this shape are returned unchanged.
+func FormatPhoneNumber(number string) string {
+	matches := nanpNumber.FindStringSubmatch(number)
+	if matches == nil {
+		return number
+	}
+
+	return fmt.Sprintf("+1 %s %s %s", matches[1], matches[2], matches[3])
+}
 
 // messageCreator narrows *twilio.RestClient.Api to just what send needs, for testability.
 type messageCreator interface {
