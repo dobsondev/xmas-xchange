@@ -6,7 +6,7 @@ A Go application for organizing Secret Santa / gift exchange events with support
 
 This is the actual yearly process, run via GitHub Actions:
 
-1. **Test run**: repo's **Actions** tab → **Run Gift Exchange** → **Run workflow**, leave `dryRun` checked (the default), and run it. This uploads a real exchange to S3 but sends no texts. Open the run's log and copy the filename from its `Exchange written to s3://...` line.
+1. **Test run**: repo's **Actions** tab → **Run Gift Exchange** → **Run workflow**, leave `send-sms` unchecked (the default), and run it. This uploads a real exchange to S3 but sends no texts. Open the run's log and copy the filename from its `Exchange written to s3://...` line.
 
 2. **Print the test results locally**, to sanity-check participants/restrictions:
    ```bash
@@ -18,7 +18,7 @@ This is the actual yearly process, run via GitHub Actions:
    go run . sendsms s3://<bucket>/<filename-from-step-1> --aws-region=<region>
    ```
 
-4. **Run it for real**: back in the **Actions** tab, run **Run Gift Exchange** again, this time *unchecking* `dryRun`. This computes a fresh exchange and actually texts everyone via Twilio.
+4. **Run it for real**: back in the **Actions** tab, run **Run Gift Exchange** again, this time *checking* `send-sms`. This computes a fresh exchange and actually texts everyone via Twilio.
 
 > Every `exchange` run generates new random pairings, so the assignments you check in steps 2–3 are **not** the ones sent in step 4 — they're a different random draw. Steps 1–3 confirm the pipeline works end-to-end (S3 upload, AWS auth, message formatting), not a preview of the final assignments.
 
@@ -101,9 +101,6 @@ The CLI is built with [cobra](https://github.com/spf13/cobra) and has three comm
 ```bash
 # Compute an exchange, writing to a local file (--filename is required)
 go run . exchange --toml=custom_participants.toml --filename=exchange-toml/my-exchange.toml
-
-# Compute an exchange without dry-run mode (actually send messages)
-go run . exchange --filename=exchange-toml/my-exchange.toml --dry-run=false
 
 # Compute an exchange with a custom max attempts
 go run . exchange --filename=exchange-toml/my-exchange.toml --max-attempts=100
@@ -211,11 +208,11 @@ These functions are documented with comments explaining why they're excluded fro
 
 ## Running via GitHub Actions
 
-The `Run Gift Exchange` workflow (`.github/workflows/run-gift-exchange.yml`) is manually triggered (`workflow_dispatch`) and computes an exchange, uploads it to S3, and — unless `dryRun` is left at its default of `true` — sends the SMS notifications too. Its `sendsms` step always runs with `--quiet`, so no participant names or numbers ever appear in the Actions log; a dry run only creates the S3 file.
+The `Run Gift Exchange` workflow (`.github/workflows/run-gift-exchange.yml`) is manually triggered (`workflow_dispatch`) and always computes an exchange and uploads it to S3, and — only if `send-sms` is checked — sends the SMS notifications too. Its `sendsms` step always runs with `--quiet`, so no participant names or numbers ever appear in the Actions log; leaving `send-sms` unchecked only creates the S3 file.
 
 It takes two inputs when triggered:
-- `dryRun` (boolean, default `true`).
-- `filename` (string, optional) — the S3 key to save the exchange as. Leave it blank to default to `<current-year>_xchange.toml` (e.g. `2026_xchange.toml`), computed at run time — GitHub Actions doesn't support dynamic expressions in a `workflow_dispatch` input's declared default, so the input itself just shows blank in the trigger form. The `dr_` dry-run prefix is only added to this auto-generated default; if you type a filename yourself, it's used exactly as given, dry run or not.
+- `send-sms` (boolean, default `false`) — check this to actually text participants; leave it unchecked for a test run.
+- `filename` (string, optional) — the S3 key to save the exchange as. Leave it blank to default to `<current-year>_xchange.toml` (e.g. `2026_xchange.toml`), computed at run time — GitHub Actions doesn't support dynamic expressions in a `workflow_dispatch` input's declared default, so the input itself just shows blank in the trigger form. The `nosms_` prefix is only added to this auto-generated default when `send-sms` is unchecked; if you type a filename yourself, it's used exactly as given either way.
 
 Before it can run, configure these in the repo's **Settings → Secrets and variables → Actions** (all as **Variables**, except the Twilio/participant values which are **Secrets** — none of this is hardcoded in the workflow, so forking the repo makes it obvious what needs to be set up):
 

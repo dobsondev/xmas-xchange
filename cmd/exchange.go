@@ -12,7 +12,6 @@ import (
 
 var (
 	exchangeTomlFlag      string
-	exchangeDryRunFlag    bool
 	exchangeMaxAttempts   int
 	exchangeFilenameFlag  string
 	exchangeOutputFlag    string
@@ -25,10 +24,6 @@ var exchangeCmd = &cobra.Command{
 	Short: "Create a new gift exchange assignment and save it to a TOML file",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		participantsList := participants.GetParticipantsFromToml(&exchangeTomlFlag)
-
-		if exchangeDryRunFlag {
-			fmt.Println("===\nDry run mode enabled. No sms messages will be sent.\n===")
-		}
 
 		exchanges := exchange.NewExchange(participantsList, exchangeMaxAttempts)
 
@@ -73,7 +68,6 @@ var exchangeCmd = &cobra.Command{
 
 func init() {
 	exchangeCmd.Flags().StringVar(&exchangeTomlFlag, "toml", "participants.toml", "Path to the TOML file containing participants' data")
-	exchangeCmd.Flags().BoolVar(&exchangeDryRunFlag, "dry-run", true, "If set, the program will not perform any actions, just simulate")
 	exchangeCmd.Flags().IntVar(&exchangeMaxAttempts, "max-attempts", 50, "Maximum number of attempts to create a valid exchange")
 	exchangeCmd.Flags().StringVar(&exchangeFilenameFlag, "filename", "", "Filename (local path or S3 key) to write the exchange TOML output to")
 	exchangeCmd.Flags().StringVar(&exchangeOutputFlag, "output", "local", `Where to write the exchange TOML output: "local" or "s3"`)

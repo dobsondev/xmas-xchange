@@ -3,9 +3,9 @@ name: Run Gift Exchange
 on:
   workflow_dispatch:
     inputs:
-      dryRun:
-        description: "Do a dry-run without sending SMS messages to the recipients."
-        default: true
+      send-sms:
+        description: "Send SMS notifications to participants. If unchecked, this only computes the exchange and uploads it to S3."
+        default: false
         type: boolean
       filename:
         description: "Filename to save the exchange TOML as (S3 key). Leave blank to default to <year>_xchange.toml."
@@ -49,14 +49,14 @@ jobs:
           FILENAME="${{ inputs.filename }}"
           if [ -z "$FILENAME" ]; then
             PREFIX=""
-            if [ "${{ inputs.dryRun }}" = "true" ]; then PREFIX="dr_"; fi
+            if [ "${{ inputs['send-sms'] }}" != "true" ]; then PREFIX="nosms_"; fi
             FILENAME="${PREFIX}$(date -u +%Y)_xchange.toml"
           fi
-          ./bin/xmas-xchange exchange --filename="$FILENAME" --output=s3 --s3-bucket="${{ vars.S3_BUCKET }}" --dry-run=${{ inputs.dryRun }}
+          ./bin/xmas-xchange exchange --filename="$FILENAME" --output=s3 --s3-bucket="${{ vars.S3_BUCKET }}"
           echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
 
       - name: Send SMS messages
-        if: ${{ !inputs.dryRun }}
+        if: ${{ inputs['send-sms'] }}
         env:
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
