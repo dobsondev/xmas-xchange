@@ -24,10 +24,25 @@ func (f *fakeMessageCreator) CreateMessage(params *twilioApi.CreateMessageParams
 }
 
 func TestBuildMessage(t *testing.T) {
-	got := BuildMessage("Alice", "Bob")
-	want := "Hello Alice! Your gift recipient is Bob. Merry Christmas!"
-	if got != want {
-		t.Errorf("BuildMessage() = %q, want %q", got, want)
+	testCases := []struct {
+		name   string
+		altMsg int
+		want   string
+	}{
+		{"default", 0, "Hello Alice! Welcome to the family gift exchange! Your gift recipient is Bob. Merry Christmas!"},
+		{"alt1", 1, "Hello Alice! Welcome to the family gift exchange! Your gift recipient is Bob."},
+		{"alt2", 2, "Hello Alice! Your gift recipient is Bob."},
+		{"alt3", 3, "Your gift recipient is Bob."},
+		{"alt4", 4, "Bob"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := BuildMessage("Alice", "Bob", tc.altMsg)
+			if got != tc.want {
+				t.Errorf("BuildMessage(altMsg=%d) = %q, want %q", tc.altMsg, got, tc.want)
+			}
+		})
 	}
 }
 

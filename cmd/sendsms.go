@@ -17,6 +17,7 @@ var (
 	sendSMSDryRunFlag    bool
 	sendSMSQuietFlag     bool
 	sendSMSTestFlag      bool
+	sendSMSAltMsgFlag    int
 )
 
 var sendSMSCmd = &cobra.Command{
@@ -25,6 +26,10 @@ var sendSMSCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		location := args[0]
+
+		if sendSMSAltMsgFlag < 0 || sendSMSAltMsgFlag > sms.MaxAltMessage {
+			return fmt.Errorf("invalid --altmsg %d: must be between 0 and %d", sendSMSAltMsgFlag, sms.MaxAltMessage)
+		}
 
 		var data []byte
 		var err error
@@ -73,7 +78,7 @@ var sendSMSCmd = &cobra.Command{
 		total := len(exchanges)
 		sent := 0
 		for i, ex := range exchanges {
-			body := sms.BuildMessage(ex.Giver.Name, ex.Receiver.Name)
+			body := sms.BuildMessage(ex.Giver.Name, ex.Receiver.Name, sendSMSAltMsgFlag)
 			if sendSMSTestFlag {
 				body = "TEST: " + body
 			}
@@ -120,6 +125,7 @@ func init() {
 	sendSMSCmd.Flags().BoolVar(&sendSMSDryRunFlag, "dry-run", true, "If set, simulate sending without calling Twilio")
 	sendSMSCmd.Flags().BoolVar(&sendSMSQuietFlag, "quiet", false, "Suppress participant names/numbers in output, printing message indices instead (for shared/CI logs)")
 	sendSMSCmd.Flags().BoolVar(&sendSMSTestFlag, "test", false, "Prefix the SMS message body with 'TEST: ' to make test sends obviously distinguishable")
+	sendSMSCmd.Flags().IntVar(&sendSMSAltMsgFlag, "altmsg", 0, "Use a progressively shorter alternate message (1-4) instead of the default, to help avoid carrier filtering")
 
 	rootCmd.AddCommand(sendSMSCmd)
 }

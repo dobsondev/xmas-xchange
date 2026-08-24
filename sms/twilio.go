@@ -26,9 +26,25 @@ type messageCreator interface {
 	CreateMessage(params *twilioApi.CreateMessageParams) (*twilioApi.ApiV2010Message, error)
 }
 
+// MaxAltMessage is the highest valid altMsg value accepted by BuildMessage.
+const MaxAltMessage = 4
+
 // BuildMessage formats the gift-exchange notification text for giverName about receiverName.
-func BuildMessage(giverName, receiverName string) string {
-	return fmt.Sprintf("Hello %s! Your gift recipient is %s. Merry Christmas!", giverName, receiverName)
+// altMsg selects a progressively shorter alternate phrasing (0 is the default message;
+// 1-4 are shorter still), useful for working around carrier SMS filtering.
+func BuildMessage(giverName, receiverName string, altMsg int) string {
+	switch altMsg {
+	case 1:
+		return fmt.Sprintf("Hello %s! Welcome to the family gift exchange! Your gift recipient is %s.", giverName, receiverName)
+	case 2:
+		return fmt.Sprintf("Hello %s! Your gift recipient is %s.", giverName, receiverName)
+	case 3:
+		return fmt.Sprintf("Your gift recipient is %s.", receiverName)
+	case 4:
+		return receiverName
+	default:
+		return fmt.Sprintf("Hello %s! Welcome to the family gift exchange! Your gift recipient is %s. Merry Christmas!", giverName, receiverName)
+	}
 }
 
 func send(client messageCreator, from, to, body string) (sid string, status string, err error) {

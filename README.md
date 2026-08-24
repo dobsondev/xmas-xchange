@@ -148,12 +148,18 @@ Every `exchange` run writes the computed giver/receiver assignments as TOML to t
 
 ### SMS notifications
 
-`sendsms` reads a saved exchange (same local path / `s3://` input as `print`) and texts each giver: *"Hello \<name\>! Your gift recipient is \<recipient-name\>. Merry Christmas!"*
+`sendsms` reads a saved exchange (same local path / `s3://` input as `print`) and texts each giver: *"Hello \<name\>! Welcome to the family gift exchange! Your gift recipient is \<recipient-name\>. Merry Christmas!"*
 
 - `--dry-run` defaults to `true` — it prints what would be sent without calling Twilio, and doesn't require any `TWILIO_*` environment variables.
 - `--dry-run=false` sends real messages and requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` to all be set (Twilio credentials are environment-variable-only — there's no CLI flag for them, since they're secrets).
 - `--name` limits the run to a single participant (case-insensitive match on their name), useful for resending to just one person.
 - `--test` prefixes the message body with `TEST: ` — handy when sending real test messages (e.g. to yourself) so they're obviously distinguishable from the real thing later.
+- `--altmsg` (`0`-`4`, default `0`) swaps in a progressively shorter message, useful if the default text keeps getting filtered by a carrier:
+  - `0` (default): *"Hello \<name\>! Welcome to the family gift exchange! Your gift recipient is \<recipient-name\>. Merry Christmas!"*
+  - `1`: *"Hello \<name\>! Welcome to the family gift exchange! Your gift recipient is \<recipient-name\>."*
+  - `2`: *"Hello \<name\>! Your gift recipient is \<recipient-name\>."*
+  - `3`: *"Your gift recipient is \<recipient-name\>."*
+  - `4`: *"\<recipient-name\>"*
 
 ## Configuration
 
