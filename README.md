@@ -22,6 +22,10 @@ This is the actual yearly process, run via GitHub Actions:
 
 > Every `exchange` run generates new random pairings, so the assignments you check in steps 2–3 are **not** the ones sent in step 4 — they're a different random draw. Steps 1–3 confirm the pipeline works end-to-end (S3 upload, AWS auth, message formatting), not a preview of the final assignments.
 
+**Prefer one command?** `helper-scripts/run-gift-exchange.sh` does the whole thing from your machine instead: pulls Twilio credentials from 1Password, computes the exchange, uploads it to S3, prints the assignments for you to review, then asks for confirmation before sending. See the script's header comment for prerequisites.
+
+**Want to test a real send first?** `helper-scripts/test-run-gift-exchange.sh` does the same compute/upload/print steps but saves to a timestamped `test_` filename (never the real yearly one), then optionally sends a single real `--test`-prefixed SMS to one participant you name — never everyone. Good for confirming Twilio actually works end-to-end without touching the real run.
+
 See [Local Quick Start](#local-quick-start) to run everything from your own machine instead, and [Running via GitHub Actions](#running-via-github-actions) for full workflow details.
 
 ## Local Quick Start
@@ -149,6 +153,7 @@ Every `exchange` run writes the computed giver/receiver assignments as TOML to t
 - `--dry-run` defaults to `true` — it prints what would be sent without calling Twilio, and doesn't require any `TWILIO_*` environment variables.
 - `--dry-run=false` sends real messages and requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` to all be set (Twilio credentials are environment-variable-only — there's no CLI flag for them, since they're secrets).
 - `--name` limits the run to a single participant (case-insensitive match on their name), useful for resending to just one person.
+- `--test` prefixes the message body with `TEST: ` — handy when sending real test messages (e.g. to yourself) so they're obviously distinguishable from the real thing later.
 
 ## Configuration
 

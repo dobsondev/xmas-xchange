@@ -16,6 +16,7 @@ var (
 	sendSMSNameFlag      string
 	sendSMSDryRunFlag    bool
 	sendSMSQuietFlag     bool
+	sendSMSTestFlag      bool
 )
 
 var sendSMSCmd = &cobra.Command{
@@ -73,6 +74,9 @@ var sendSMSCmd = &cobra.Command{
 		sent := 0
 		for i, ex := range exchanges {
 			body := sms.BuildMessage(ex.Giver.Name, ex.Receiver.Name)
+			if sendSMSTestFlag {
+				body = "TEST: " + body
+			}
 
 			if sendSMSDryRunFlag {
 				if sendSMSQuietFlag {
@@ -115,6 +119,7 @@ func init() {
 	sendSMSCmd.Flags().StringVar(&sendSMSNameFlag, "name", "", "If set, only (re)send the SMS to this participant (case-insensitive match on giver name)")
 	sendSMSCmd.Flags().BoolVar(&sendSMSDryRunFlag, "dry-run", true, "If set, simulate sending without calling Twilio")
 	sendSMSCmd.Flags().BoolVar(&sendSMSQuietFlag, "quiet", false, "Suppress participant names/numbers in output, printing message indices instead (for shared/CI logs)")
+	sendSMSCmd.Flags().BoolVar(&sendSMSTestFlag, "test", false, "Prefix the SMS message body with 'TEST: ' to make test sends obviously distinguishable")
 
 	rootCmd.AddCommand(sendSMSCmd)
 }
