@@ -1,0 +1,58 @@
+package sms
+
+import (
+	"errors"
+	"testing"
+
+	twilioApi "github.com/twilio/twilio-go/rest/api/v2010"
+)
+
+type fakeMessageCreator struct {
+	gotParams *twilioApi.CreateMessageParams
+	err       error
+}
+
+func (f *fakeMessageCreator) CreateMessage(params *twilioApi.CreateMessageParams) (*twilioApi.ApiV2010Message, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	f.gotParams = params
+	return &twilioApi.ApiV2010Message{}, nil
+}
+
+func TestBuildMessage(t *testing.T) {
+	got := BuildMessage("Alice", "Bob")
+	want := "Hello Alice! Your gift recipient is Bob. Merry Christmas!"
+	if got != want {
+		t.Errorf("BuildMessage() = %q, want %q", got, want)
+	}
+}
+
+func TestSend_Success(t *testing.T) {
+	fake := &fakeMessageCreator{}
+
+	err := send(fake, "+15550000001", "+15550000002", "hello")
+	if err != nil {
+		t.Fatalf("send returned error: %v", err)
+	}
+
+	if fake.gotParams.To == nil || *fake.gotParams.To != "+15550000002" {
+		t.Errorf("Expected To %q, got %v", "+15550000002", fake.gotParams.To)
+	}
+	if fake.gotParams.From == nil || *fake.gotParams.From != "+15550000001" {
+		t.Errorf("Expected From %q, got %v", "+15550000001", fake.gotParams.From)
+	}
+	if fake.gotParams.Body == nil || *fake.gotParams.Body != "hello" {
+		t.Errorf("Expected Body %q, got %v", "hello", fake.gotParams.Body)
+	}
+}
+
+func TestSend_Error(t *testing.T) {
+	fake := &fakeMessageCreator{err: errors.New("boom")}
+
+	err := send(fake, "+15550000001", "+15550000002", "hello")
+	if err == nil {
+		t.Errorf("Expected an error, got nil")
+	}
+}

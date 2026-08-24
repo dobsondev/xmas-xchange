@@ -1,0 +1,33 @@
+name: Continuous Integration
+
+on:
+  push:
+  pull_request:
+    branches:
+      - major/golang
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test-verbose

@@ -99,10 +99,27 @@ func determineReceiver(giver Participant, participants []Participant, exchanges 
 	return receiver, nil
 }
 
+// FilterByGiverName returns the exchanges whose giver matches name (case-insensitive).
+// Returns an error if none match.
+func FilterByGiverName(exchanges []Exchange, name string) ([]Exchange, error) {
+	filtered := []Exchange{}
+	for _, exchange := range exchanges {
+		if strings.EqualFold(exchange.Giver.Name, name) {
+			filtered = append(filtered, exchange)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("no participant named %q found in exchange", name)
+	}
+
+	return filtered, nil
+}
+
 // PrintExchange outputs the gift exchange assignments to stdout.
 // This function is not unit tested as it only performs console output formatting.
 func PrintExchange(exchanges []Exchange) {
 	for _, exchange := range exchanges {
-		fmt.Printf("Giver: %s -> Receiver: %s\n", exchange.Giver.Name, exchange.Receiver.Name)
+		fmt.Printf("%s -> %s\n", exchange.Giver.Name, exchange.Receiver.Name)
 	}
 }

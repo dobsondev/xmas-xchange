@@ -2,6 +2,67 @@
 
 A Go application for organizing Secret Santa / gift exchange events with support for participant restrictions.
 
+## Yearly Gift Exchange Run
+
+This is the actual yearly process, run via GitHub Actions:
+
+1. **Test run**: repo's **Actions** tab → **Run Gift Exchange** → **Run workflow**, leave `dryRun` checked (the default), and run it. This uploads a real exchange to S3 but sends no texts. Open the run's log and copy the filename from its `Exchange written to s3://...` line.
+
+2. **Print the test results locally**, to sanity-check participants/restrictions:
+   ```bash
+   go run . print s3://<bucket>/<filename-from-step-1> --aws-region=<region>
+   ```
+
+3. **Dry-run the SMS messages locally**, to see exactly what each text will say (safe to do locally with real names — it's only your machine, never the Actions log):
+   ```bash
+   go run . sendsms s3://<bucket>/<filename-from-step-1> --aws-region=<region>
+   ```
+
+4. **Run it for real**: back in the **Actions** tab, run **Run Gift Exchange** again, this time *unchecking* `dryRun`. This computes a fresh exchange and actually texts everyone via Twilio.
+
+> Every `exchange` run generates new random pairings, so the assignments you check in steps 2–3 are **not** the ones sent in step 4 — they're a different random draw. Steps 1–3 confirm the pipeline works end-to-end (S3 upload, AWS auth, message formatting), not a preview of the final assignments.
+
+See [Local Quick Start](#local-quick-start) to run everything from your own machine instead, and [Running via GitHub Actions](#running-via-github-actions) for full workflow details.
+
+## Local Quick Start
+
+Running a full gift exchange is four steps:
+
+```bash
+# 1. Create a participants.toml file with everyone's name, number, and restrictions
+cp participants.example.toml participants.toml
+# ...then edit participants.toml with your real participants
+
+# 2. Compute the exchange and save the assignments to a TOML file
+go run . exchange --filename=exchange-toml/exchange.toml
+
+# 3. Set the Twilio environment variables sendsms needs to actually send texts
+export TWILIO_ACCOUNT_SID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export TWILIO_PHONE_NUMBER=+15551234567
+
+# 4. Text everyone their gift recipient
+go run . sendsms exchange-toml/exchange.toml --dry-run=false
+```
+
+Step 3 needs to set **real environment variables** in the shell/process that runs step 4 — a `.env` file by itself does nothing here. This project doesn't load `.env` files automatically (no `godotenv` or similar); a `.env` is just a plain text file unless something sources it into the environment first (e.g. `set -a; source .env; set +a`, `direnv`, or your CI setting them as secrets). If you skip step 3 and run step 4 with `--dry-run=false`, `sendsms` fails fast with a clear error rather than attempting to send.
+
+See [Configuration](#configuration) for the `participants.toml` format, [Running](#running) for the full set of flags (S3 output, max attempts, etc), and [Environment Variables](#environment-variables) for all of them.
+
+### Troubleshooting
+
+**Someone didn't get their text** (e.g. their carrier blocked the Twilio number): resend to just that one person with `--name`, instead of texting everyone again:
+
+```bash
+go run . sendsms exchange-toml/exchange.toml --dry-run=false --name="Alice"
+```
+
+**Still no luck / worst case**: print just their assignment locally and relay it to them yourself (in person, a different messaging app, etc.):
+
+```bash
+go run . print exchange-toml/exchange.toml --name="Alice"
+```
+
 ## Features
 
 - Read participant data from TOML configuration files
@@ -20,7 +81,7 @@ The binary will be created at `bin/xmas-xchange`.
 
 ## Running
 
-The CLI is built with [cobra](https://github.com/spf13/cobra) and has two commands: `exchange` (compute a gift exchange and save it to a TOML file) and `print` (load and display a previously saved exchange).
+The CLI is built with [cobra](https://github.com/spf13/cobra) and has three commands: `exchange` (compute a gift exchange and save it to a TOML file), `print` (load and display a previously saved exchange), and `sendsms` (text each giver who their recipient is via Twilio).
 
 ```bash
 # Compute an exchange, writing to a local file (--filename is required)
@@ -43,6 +104,21 @@ go run . print exchange-toml/my-exchange.toml
 
 # Print a previously saved exchange from S3
 go run . print s3://my-bucket/my-exchange.toml --aws-region=us-east-1
+
+# Print just one participant's assignment (e.g. to relay it manually if their SMS was blocked)
+go run . print exchange-toml/my-exchange.toml --name=Alice
+
+# Simulate sending SMS notifications for everyone in a saved exchange (--dry-run defaults to true)
+go run . sendsms exchange-toml/my-exchange.toml
+
+# Actually send SMS notifications via Twilio (requires TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_PHONE_NUMBER)
+go run . sendsms exchange-toml/my-exchange.toml --dry-run=false
+
+# Resend to just one participant by name (case-insensitive)
+go run . sendsms exchange-toml/my-exchange.toml --dry-run=false --name=Alice
+
+# sendsms also reads from S3 the same way print does
+go run . sendsms s3://my-bucket/my-exchange.toml --aws-region=us-east-1
 ```
 
 ### Exchange TOML output
@@ -52,7 +128,15 @@ Every `exchange` run writes the computed giver/receiver assignments as TOML to t
 - `local` (default) — `--filename` is used as-is as a local file path (parent directories are created automatically).
 - `s3` — `--filename` is used as the S3 object key. The bucket and region come from `--s3-bucket`/`--aws-region`, falling back to the `S3_BUCKET`/`AWS_REGION` environment variables if the flags aren't passed; one or the other is required.
 
-`print` reads whatever location string `exchange` printed: a local path, or an `s3://bucket/key` URI (in which case `--aws-region`, falling back to `AWS_REGION`, is required).
+`print` reads whatever location string `exchange` printed: a local path, or an `s3://bucket/key` URI (in which case `--aws-region`, falling back to `AWS_REGION`, is required). `--name` (case-insensitive) filters output to a single participant's assignment — handy if their SMS never arrived and you need to relay it another way.
+
+### SMS notifications
+
+`sendsms` reads a saved exchange (same local path / `s3://` input as `print`) and texts each giver: *"Hello \<name\>! Your gift recipient is \<recipient-name\>. Merry Christmas!"*
+
+- `--dry-run` defaults to `true` — it prints what would be sent without calling Twilio, and doesn't require any `TWILIO_*` environment variables.
+- `--dry-run=false` sends real messages and requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` to all be set (Twilio credentials are environment-variable-only — there's no CLI flag for them, since they're secrets).
+- `--name` limits the run to a single participant (case-insensitive match on their name), useful for resending to just one person.
 
 ## Configuration
 
@@ -107,7 +191,21 @@ These functions are documented with comments explaining why they're excluded fro
 
 - `LOG_LEVEL` - Set logging level (DEBUG, INFO, WARN, ERROR). Defaults to INFO.
 - `S3_BUCKET` - Fallback for `exchange --s3-bucket` when writing to S3.
-- `AWS_REGION` - Fallback for `exchange --aws-region` when writing to S3.
+- `AWS_REGION` - Fallback for `exchange --aws-region` / `print --aws-region` / `sendsms --aws-region` when using S3.
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` - Required by `sendsms --dry-run=false` to send real SMS messages via Twilio.
+
+## Running via GitHub Actions
+
+The `Run Gift Exchange` workflow (`.github/workflows/run-gift-exchange.yml`) is manually triggered (`workflow_dispatch`) and computes an exchange, uploads it to S3, and — unless `dryRun` is left at its default of `true` — sends the SMS notifications too. Its `sendsms` step always runs with `--quiet`, so no participant names or numbers ever appear in the Actions log; a dry run only creates the S3 file.
+
+It takes two inputs when triggered:
+- `dryRun` (boolean, default `true`).
+- `filename` (string, optional) — the S3 key to save the exchange as. Leave it blank to default to `<current-year>_xchange.toml` (e.g. `2026_xchange.toml`), computed at run time — GitHub Actions doesn't support dynamic expressions in a `workflow_dispatch` input's declared default, so the input itself just shows blank in the trigger form. The `dr_` dry-run prefix is only added to this auto-generated default; if you type a filename yourself, it's used exactly as given, dry run or not.
+
+Before it can run, configure these in the repo's **Settings → Secrets and variables → Actions** (all as **Variables**, except the Twilio/participant values which are **Secrets** — none of this is hardcoded in the workflow, so forking the repo makes it obvious what needs to be set up):
+
+- **Secrets**: `PARTICIPANTS_TOML` (the full contents of your `participants.toml`, pasted as-is — GitHub secrets support multi-line values, no encoding needed), `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`.
+- **Variables**: `S3_BUCKET`, `AWS_ROLE_ARN` (the IAM role to assume via OIDC — must trust this repo), `AWS_REGION`.
 
 ## Project Structure
 
@@ -118,6 +216,7 @@ These functions are documented with comments explaining why they're excluded fro
 │   ├── root.go
 │   ├── exchange.go
 │   ├── print.go
+│   ├── sendsms.go
 │   └── root_test.go
 ├── exchange/            # Gift exchange logic
 │   ├── exchange.go
@@ -130,6 +229,9 @@ These functions are documented with comments explaining why they're excluded fro
 │   ├── local_test.go
 │   ├── s3.go
 │   └── s3_test.go
+├── sms/                  # Twilio SMS sending
+│   ├── twilio.go
+│   └── twilio_test.go
 └── participants/        # Participant data structures
     ├── participants.go
     └── participants_test.go

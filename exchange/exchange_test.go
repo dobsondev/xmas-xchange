@@ -103,3 +103,43 @@ func TestNewExchange_NoRestrictions(t *testing.T) {
 		t.Errorf("Expected %d gift exchanges, got %d", len(participants), len(exchanges))
 	}
 }
+
+func TestFilterByGiverName(t *testing.T) {
+	exchanges := []Exchange{
+		{Giver: Participant{Name: "Alice"}, Receiver: Participant{Name: "Bob"}},
+		{Giver: Participant{Name: "Bob"}, Receiver: Participant{Name: "Alice"}},
+	}
+
+	filtered, err := FilterByGiverName(exchanges, "alice")
+	if err != nil {
+		t.Fatalf("FilterByGiverName returned error: %v", err)
+	}
+	if len(filtered) != 1 || filtered[0].Giver.Name != "Alice" {
+		t.Errorf("Expected exactly one exchange for Alice, got %+v", filtered)
+	}
+}
+
+func TestFilterByGiverName_CaseInsensitive(t *testing.T) {
+	exchanges := []Exchange{
+		{Giver: Participant{Name: "Alice"}, Receiver: Participant{Name: "Bob"}},
+	}
+
+	filtered, err := FilterByGiverName(exchanges, "ALICE")
+	if err != nil {
+		t.Fatalf("FilterByGiverName returned error: %v", err)
+	}
+	if len(filtered) != 1 {
+		t.Errorf("Expected exactly one exchange, got %d", len(filtered))
+	}
+}
+
+func TestFilterByGiverName_NoMatch(t *testing.T) {
+	exchanges := []Exchange{
+		{Giver: Participant{Name: "Alice"}, Receiver: Participant{Name: "Bob"}},
+	}
+
+	_, err := FilterByGiverName(exchanges, "Carol")
+	if err == nil {
+		t.Errorf("Expected an error for no match, got nil")
+	}
+}

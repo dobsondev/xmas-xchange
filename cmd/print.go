@@ -9,7 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var printAWSRegionFlag string
+var (
+	printAWSRegionFlag string
+	printNameFlag      string
+)
 
 var printCmd = &cobra.Command{
 	Use:   "print [file]",
@@ -43,6 +46,13 @@ var printCmd = &cobra.Command{
 			return err
 		}
 
+		if printNameFlag != "" {
+			exchanges, err = exchange.FilterByGiverName(exchanges, printNameFlag)
+			if err != nil {
+				return err
+			}
+		}
+
 		exchange.PrintExchange(exchanges)
 		return nil
 	},
@@ -50,6 +60,7 @@ var printCmd = &cobra.Command{
 
 func init() {
 	printCmd.Flags().StringVar(&printAWSRegionFlag, "aws-region", "", "AWS region to use when reading an s3:// location (falls back to AWS_REGION env var)")
+	printCmd.Flags().StringVar(&printNameFlag, "name", "", "If set, only print the exchange entry for this participant (case-insensitive match on giver name)")
 
 	rootCmd.AddCommand(printCmd)
 }

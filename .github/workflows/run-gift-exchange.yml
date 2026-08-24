@@ -1,0 +1,65 @@
+name: Run Gift Exchange
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "Do a dry-run without sending SMS messages to the recipients."
+        default: true
+        type: boolean
+      filename:
+        description: "Filename to save the exchange TOML as (S3 key). Leave blank to default to <year>_xchange.toml."
+        default: ""
+        type: string
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+jobs:
+  run_gift_exchange:
+    name: Run xmas-xchange
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Generate participants.toml
+        run: |
+          cat << 'EOF' > participants.toml
+          ${{ secrets.PARTICIPANTS_TOML }}
+          EOF
+
+      - name: Build
+        run: make build
+
+      - name: Compute exchange and upload to S3
+        id: exchange
+        run: |
+          FILENAME="${{ inputs.filename }}"
+          if [ -z "$FILENAME" ]; then
+            PREFIX=""
+            if [ "${{ inputs.dryRun }}" = "true" ]; then PREFIX="dr_"; fi
+            FILENAME="${PREFIX}$(date -u +%Y)_xchange.toml"
+          fi
+          ./bin/xmas-xchange exchange --filename="$FILENAME" --output=s3 --s3-bucket="${{ vars.S3_BUCKET }}" --dry-run=${{ inputs.dryRun }}
+          echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
+
+      - name: Send SMS messages
+        if: ${{ !inputs.dryRun }}
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+        run: |
+          ./bin/xmas-xchange sendsms "s3://${{ vars.S3_BUCKET }}/${{ steps.exchange.outputs.filename }}" --dry-run=false --quiet
