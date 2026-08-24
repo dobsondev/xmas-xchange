@@ -63,6 +63,21 @@ go run . sendsms exchange-toml/exchange.toml --dry-run=false --name="Alice"
 go run . print exchange-toml/exchange.toml --name="Alice"
 ```
 
+**Checking a message's actual delivery status**: `sendsms` prints a Twilio message SID for every send (e.g. `Sent to Alice (+1 555 123 4567) [sid=SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, status=queued]`), but that status is only the *initial* one — Twilio confirms real delivery asynchronously. Check the [Twilio Console](https://console.twilio.com) → Monitor → Logs → Messaging, or use the [Twilio CLI](https://www.twilio.com/docs/twilio-cli/quickstart):
+
+```bash
+# Install (macOS)
+brew tap twilio/brew && brew install twilio
+
+# Look up a specific message by SID
+twilio api:core:messages:fetch --sid SMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Or list recent messages without needing a SID
+twilio api:core:messages:list --limit 20
+```
+
+The CLI picks up `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` from the environment automatically if they're already set (e.g. the same ones exported for `sendsms`) — otherwise run `twilio login` once to store a profile.
+
 ## Features
 
 - Read participant data from TOML configuration files
