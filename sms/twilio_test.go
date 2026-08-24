@@ -9,6 +9,8 @@ import (
 
 type fakeMessageCreator struct {
 	gotParams *twilioApi.CreateMessageParams
+	sid       string
+	status    string
 	err       error
 }
 
@@ -18,7 +20,7 @@ func (f *fakeMessageCreator) CreateMessage(params *twilioApi.CreateMessageParams
 	}
 
 	f.gotParams = params
-	return &twilioApi.ApiV2010Message{}, nil
+	return &twilioApi.ApiV2010Message{Sid: &f.sid, Status: &f.status}, nil
 }
 
 func TestBuildMessage(t *testing.T) {
@@ -30,13 +32,19 @@ func TestBuildMessage(t *testing.T) {
 }
 
 func TestSend_Success(t *testing.T) {
-	fake := &fakeMessageCreator{}
+	fake := &fakeMessageCreator{sid: "SM123", status: "queued"}
 
-	err := send(fake, "+15550000001", "+15550000002", "hello")
+	sid, status, err := send(fake, "+15550000001", "+15550000002", "hello")
 	if err != nil {
 		t.Fatalf("send returned error: %v", err)
 	}
 
+	if sid != "SM123" {
+		t.Errorf("Expected sid %q, got %q", "SM123", sid)
+	}
+	if status != "queued" {
+		t.Errorf("Expected status %q, got %q", "queued", status)
+	}
 	if fake.gotParams.To == nil || *fake.gotParams.To != "+15550000002" {
 		t.Errorf("Expected To %q, got %v", "+15550000002", fake.gotParams.To)
 	}
@@ -51,7 +59,7 @@ func TestSend_Success(t *testing.T) {
 func TestSend_Error(t *testing.T) {
 	fake := &fakeMessageCreator{err: errors.New("boom")}
 
-	err := send(fake, "+15550000001", "+15550000002", "hello")
+	_, _, err := send(fake, "+15550000001", "+15550000002", "hello")
 	if err == nil {
 		t.Errorf("Expected an error, got nil")
 	}

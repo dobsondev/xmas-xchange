@@ -31,14 +31,25 @@ func BuildMessage(giverName, receiverName string) string {
 	return fmt.Sprintf("Hello %s! Your gift recipient is %s. Merry Christmas!", giverName, receiverName)
 }
 
-func send(client messageCreator, from, to, body string) error {
+func send(client messageCreator, from, to, body string) (sid string, status string, err error) {
 	params := &twilioApi.CreateMessageParams{}
 	params.SetTo(to)
 	params.SetFrom(from)
 	params.SetBody(body)
 
-	_, err := client.CreateMessage(params)
-	return err
+	msg, err := client.CreateMessage(params)
+	if err != nil {
+		return "", "", err
+	}
+
+	if msg.Sid != nil {
+		sid = *msg.Sid
+	}
+	if msg.Status != nil {
+		status = *msg.Status
+	}
+
+	return sid, status, nil
 }
 
 // NewClient returns a Twilio REST client, reading TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN from the environment.
@@ -46,7 +57,9 @@ func NewClient() *twilio.RestClient {
 	return twilio.NewRestClient()
 }
 
-// Send sends a single SMS from `from` to `to` with the given body.
-func Send(client *twilio.RestClient, from, to, body string) error {
+// Send sends a single SMS from `from` to `to` with the given body, returning the
+// Twilio message SID and its initial status (typically "queued" or "accepted" —
+// final delivery status is only known asynchronously, not from this call).
+func Send(client *twilio.RestClient, from, to, body string) (sid string, status string, err error) {
 	return send(client.Api, from, to, body)
 }

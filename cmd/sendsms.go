@@ -84,7 +84,8 @@ var sendSMSCmd = &cobra.Command{
 				continue
 			}
 
-			if err := sms.Send(client, from, ex.Giver.Number, body); err != nil {
+			sid, status, err := sms.Send(client, from, ex.Giver.Number, body)
+			if err != nil {
 				if sendSMSQuietFlag {
 					return fmt.Errorf("failed to send SMS %d/%d: %w", i+1, total, err)
 				}
@@ -92,9 +93,9 @@ var sendSMSCmd = &cobra.Command{
 			}
 
 			if sendSMSQuietFlag {
-				fmt.Printf("Sent message %d/%d\n", i+1, total)
+				fmt.Printf("Sent message %d/%d (sid=%s, status=%s)\n", i+1, total, sid, status)
 			} else {
-				fmt.Printf("Sent to %s (%s)\n", ex.Giver.Name, ex.Giver.Number)
+				fmt.Printf("Sent to %s (%s) [sid=%s, status=%s]\n", ex.Giver.Name, sms.FormatPhoneNumber(ex.Giver.Number), sid, status)
 			}
 			sent++
 		}
